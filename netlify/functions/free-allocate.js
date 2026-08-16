@@ -135,7 +135,12 @@ async function callAnthropicJSON(systemPrompt, messages, maxTokens){
   }
   const raw = textBlock.text.trim();
   const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-  return JSON.parse(jsonStr);
+  try {
+    return JSON.parse(jsonStr);
+  } catch (err) {
+    console.log('[free-allocate] JSON.parse failed on model output (stop_reason=' + (data.stop_reason || 'unknown') + ', len=' + jsonStr.length + '): ' + jsonStr.slice(0, 400));
+    throw err;
+  }
 }
 
 export default async (req, context) => {
