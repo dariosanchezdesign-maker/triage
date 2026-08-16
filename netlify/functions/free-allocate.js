@@ -192,7 +192,7 @@ export default async (req, context) => {
       try {
         // Step 1: decide clarification + stakes in one small, fast call —
         // this alone was never the slow part.
-        const clarify = await callAnthropicJSON(buildClarifyPrompt(mode), messages, 300);
+        const clarify = await callAnthropicJSON(buildClarifyPrompt(mode), messages, 600);
 
         if (clarify.needs_clarification){
           finalBody = {
