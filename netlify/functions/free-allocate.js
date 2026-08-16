@@ -199,7 +199,7 @@ export default async (req, context) => {
       try {
         // Step 1: decide clarification + stakes in one small, fast call —
         // this alone was never the slow part.
-        const clarify = await callAnthropicJSON(buildClarifyPrompt(mode), messages, 600);
+        const clarify = await callAnthropicJSON(buildClarifyPrompt(mode), messages, 1000);
 
         if (clarify.needs_clarification){
           finalBody = {
@@ -214,7 +214,7 @@ export default async (req, context) => {
           // actually keeps total wall-clock time short, since the batches
           // run concurrently and each has a much smaller job.
           const batchResults = await Promise.all(
-            STAGE_BATCHES.map(keys => callAnthropicJSON(buildBatchPrompt(keys, clarify.stakes_read), messages, 3500))
+            STAGE_BATCHES.map(keys => callAnthropicJSON(buildBatchPrompt(keys, clarify.stakes_read), messages, 6000))
           );
           globalCallCount += STAGE_BATCHES.length;
 
