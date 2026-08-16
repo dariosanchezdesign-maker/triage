@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512" role="img" aria-label="Triage">
+  <title>Triage app icon</title>
+  <rect width="100" height="100" rx="22" fill="#000000"></rect>
+  <filter id="goo-tile" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.1" result="b"></feGaussianBlur><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11"></feColorMatrix></filter>
+  <g filter="url(#goo-tile)" fill="#ffffff"><g transform="translate(17 12) scale(0.66)"><rect x="12" y="18" width="44" height="26" rx="13"></rect><rect x="59" y="18" width="26" height="26" rx="13"></rect><rect x="37" y="46" width="24" height="46" rx="12"></rect></g></g>
+</svg>

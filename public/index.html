@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Triage breaks a design project into fixed stages and recommends who should own each one — human, AI, or a split between them — reasoned against your specific brief, not a template.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='64' height='64'%3E%3Crect width='100' height='100' rx='22' fill='%23000000'/%3E%3Cfilter id='goo-fav' x='-30%25' y='-30%25' width='160%25' height='160%25'%3E%3CfeGaussianBlur in='SourceGraphic' stdDeviation='2.1' result='b'/%3E%3CfeColorMatrix in='b' mode='matrix' values='1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11'/%3E%3C/filter%3E%3Cg filter='url(%23goo-fav)' fill='%23ffffff'%3E%3Cg transform='translate(17 12) scale(0.66)'%3E%3Crect x='12' y='18' width='44' height='26' rx='13'/%3E%3Crect x='59' y='18' width='26' height='26' rx='13'/%3E%3Crect x='37' y='46' width='24' height='46' rx='12'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='512' height='512'%3E%3Crect width='100' height='100' rx='22' fill='%23000000'/%3E%3Cfilter id='goo-tile' x='-30%25' y='-30%25' width='160%25' height='160%25'%3E%3CfeGaussianBlur in='SourceGraphic' stdDeviation='2.1' result='b'/%3E%3CfeColorMatrix in='b' mode='matrix' values='1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11'/%3E%3C/filter%3E%3Cg filter='url(%23goo-tile)' fill='%23ffffff'%3E%3Cg transform='translate(17 12) scale(0.66)'%3E%3Crect x='12' y='18' width='44' height='26' rx='13'/%3E%3Crect x='59' y='18' width='26' height='26' rx='13'/%3E%3Crect x='37' y='46' width='24' height='46' rx='12'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E">
+<meta name="theme-color" content="#ffffff">
+<title>Triage — Human-AI Design Task Allocation</title>
+<style>
+  @font-face{
+    font-family:'Goudy Bookletter 1911';
+    src:url('fonts/GoudyBookletter1911-Regular.ttf') format('truetype');
+    font-weight:400;
+    font-style:normal;
+    font-display:swap;
+  }
+  @font-face{
+    font-family:'Host Grotesk';
+    src:url('fonts/HostGrotesk-VariableFont_wght.ttf') format('truetype-variations');
+    font-weight:300 800;
+    font-style:normal;
+    font-display:swap;
+  }
+  @font-face{
+    font-family:'Host Grotesk';
+    src:url('fonts/HostGrotesk-Italic-VariableFont_wght.ttf') format('truetype-variations');
+    font-weight:300 800;
+    font-style:italic;
+    font-display:swap;
+  }
+  :root{
+    --bg:#ffffff;
+    --bg-tint:#f7f8fa;
+    --panel:#ffffff;
+    --panel-2:#f3f4f6;
+    --border:#e6e8eb;
+    --border-strong:#d2d6db;
+    --text:#140f2d;
+    --text-secondary:#5b6570;
+    --text-muted:#93999f;
+    --blue:#3f88c5;
+    --blue-soft:#ecf3f9;
+    --blue-text:#2d6695;
+    --red:#f22b29;
+    --red-soft:#feeaea;
+    --red-text:#b70d0b;
+    --accent:var(--blue);
+    --accent-dim:#ecf3f9;
+    --owner-human:#3f88c5;
+    --owner-human-soft:#ecf3f9;
+    --owner-human-text:#2d6695;
+    --owner-ai:#d72638;
+    --owner-ai-soft:#fbe9eb;
+    --owner-ai-text:#a51d2b;
+    --owner-collaborative:#f49d37;
+    --owner-collaborative-soft:#fef5eb;
+    --owner-collaborative-text:#915208;
+    --owner-split:#140f2d;
+    --owner-split-soft:#e8e7ea;
+    --owner-split-text:#140f2d;
+    --radius:14px;
+    --font: 'Host Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-serif: 'Goudy Bookletter 1911', Georgia, Cambria, "Times New Roman", Times, serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth; overflow-x:clip;}
+  #howTitle, #methodTitle, #ownerTitle{scroll-margin-top:100px;}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *, *::before, *::after{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:clip;
+  }
+  ::selection{background:var(--blue); color:#fff;}
+  a{color:var(--text);}
+  :focus-visible{outline:2px solid var(--blue); outline-offset:2px; border-radius:4px;}
+  input:focus-visible, textarea:focus-visible{outline:none;}
+
+  .skip-link{
+    position:absolute; left:-9999px; top:0; z-index:100;
+    background:var(--text); color:#fff; padding:10px 16px;
+    border-radius:0 0 8px 0; font-size:13px; font-weight:600;
+  }
+  .skip-link:focus{left:0;}
+
+  .wrap{max-width:1040px; margin:0 auto; padding:0 24px;}
+  .narrow{max-width:640px; margin:0 auto;}
+  header{
+    position:fixed; top:18px; left:0; right:0; z-index:50;
+    display:flex; justify-content:center; pointer-events:none;
+    padding:0 24px;
+  }
+  .nav-pill{
+    position:relative;
+    pointer-events:auto;
+    display:flex; align-items:center; gap:26px;
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+    padding:10px 10px 10px 20px;
+    box-shadow:0 10px 28px -14px rgba(20,15,45,0.22);
+  }
+  .brand{display:flex; align-items:center; gap:11px; text-decoration:none; transition:opacity .2s ease;}
+  .brand:hover{opacity:0.7;}
+  .brand-mark{display:block; flex-shrink:0;}
+  h1{font-size:16px; font-weight:600; margin:0; letter-spacing:-0.02em; color:var(--text);}
+  .nav-links{display:flex; align-items:center; gap:4px;}
+  .nav-links a{font-size:14px; color:var(--text-secondary); text-decoration:none; white-space:nowrap; padding:8px 12px; border-radius:8px; transition:color .2s ease, background .2s ease;}
+  .nav-links a:hover{color:var(--text); background:var(--panel-2);}
+  .nav-cta{
+    background:var(--text); color:#fff; border-radius:8px; padding:11px 22px;
+    font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap;
+    border:none; font-family:var(--font); cursor:pointer;
+    transition:transform .2s cubic-bezier(.22,1,.36,1), opacity .2s ease;
+  }
+  .nav-cta:hover{transform:translateY(-1px); opacity:0.85;}
+  .nav-cta:active{transform:translateY(0) scale(0.98);}
+  .nav-toggle{
+    display:none; background:none; border:none; padding:0; margin:0;
+    width:38px; height:38px; align-items:center; justify-content:center;
+    color:var(--text); border-radius:8px; cursor:pointer; flex-shrink:0;
+  }
+  .nav-toggle:hover{background:var(--panel-2);}
+  .nav-toggle-icon-close{display:none;}
+  .nav-dropdown{display:none;}
+  @media (max-width:760px){
+    .nav-links, .nav-pill > .nav-cta{display:none;}
+    .nav-pill{gap:14px; width:100%; justify-content:space-between;}
+    .nav-toggle{display:flex;}
+    .nav-pill.is-open .nav-toggle-icon-open{display:none;}
+    .nav-pill.is-open .nav-toggle-icon-close{display:block;}
+    .nav-dropdown{
+      display:grid; grid-template-rows:minmax(0, 0fr);
+      position:absolute; top:calc(100% + 10px); left:0; right:0;
+      background:transparent; border:1px solid transparent; border-radius:12px;
+      box-shadow:0 0 0 0 rgba(20,15,45,0);
+      transition:grid-template-rows .22s ease-out, border-color .22s ease-out, box-shadow .22s ease-out, background .22s ease-out;
+    }
+    .nav-pill.is-open .nav-dropdown{
+      grid-template-rows:minmax(0, 1fr);
+      background:#fff;
+      border-color:var(--border);
+      box-shadow:0 10px 28px -14px rgba(20,15,45,0.22);
+    }
+    .nav-dropdown-inner{
+      display:flex; flex-direction:column; gap:2px; min-height:0; overflow:hidden;
+      padding:10px;
+    }
+    .nav-dropdown a{padding:12px; font-size:15px; color:var(--text); text-decoration:none; border-radius:8px; transition:background .15s ease;}
+    .nav-dropdown a:hover{background:var(--panel-2);}
+    .nav-dropdown .nav-cta{display:block; width:100%; text-align:center; margin-top:6px;}
+  }
+
+  section.section{padding:88px 0;}
+  @media (max-width:700px){ section.section{padding:56px 0;} }
+  .band-tint{background:var(--bg-tint);}
+
+  .hero{position:relative; isolation:isolate; text-align:center; padding:130px 0 90px;}
+  .geo-tile{display:block; flex-shrink:0;}
+  #mainHero{text-align:left; padding:150px 0 90px;}
+  .hero-grid{display:grid; grid-template-columns:1.05fr 0.95fr; gap:56px; align-items:center;}
+  #mainHero .hero-sub{margin-left:0; margin-right:0;}
+  #mainHero .hero-chat-card{margin:0;}
+  .hero-graphic{display:flex; align-items:center; justify-content:center;}
+  .hero-graphic img{width:100%; max-width:420px; height:auto; display:block;}
+  .illustration-band{padding:20px 0 88px;}
+  .illustration-img{width:100%; height:auto; display:block; border-radius:var(--radius);}
+  @media (min-width:861px){
+    .hero-grid{grid-template-columns:1.35fr 0.65fr;}
+    #mainHero .headline{font-size:clamp(56px, 6.8vw, 92px);}
+    .hero-graphic img{max-width:300px;}
+  }
+  @media (max-width:860px){
+    .hero-grid{grid-template-columns:1fr; gap:36px;}
+    #mainHero{text-align:center;}
+    #mainHero .hero-sub{margin-left:auto; margin-right:auto;}
+    #mainHero .hero-chat-card{margin:0 auto;}
+    .hero-graphic img{max-width:220px;}
+  }
+  .section-head-geo{display:flex; align-items:center; gap:18px;}
+  .section-head-geo .geo-tile{width:44px; height:44px; border-radius:8px; overflow:hidden; flex-shrink:0;}
+  .section-head-geo .section-head-geo-text{flex:1;}
+  .hero > *{animation:heroIn .7s cubic-bezier(.22,1,.36,1) backwards;}
+  .hero .headline{animation-delay:0.05s;}
+  .hero .hero-sub{animation-delay:0.15s;}
+  .hero .hero-chat-card{animation-delay:0.25s;}
+  @keyframes heroIn{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);}}
+  .headline{font-family:var(--font-serif); font-size:clamp(34px, 5.4vw, 52px); line-height:1.08; letter-spacing:-0.03em; font-weight:400; margin:0 0 16px;}
+  .headline em{font-style:normal; font-weight:400;}
+  .section-head{text-align:center; margin:0 auto 44px;}
+  .section-head .headline{font-size:clamp(28px, 4vw, 40px);}
+  .section-head-left{text-align:left;}
+  .section-head-left.narrow{margin:0 0 44px 0;}
+  .section-head-left .section-sub{margin:0;}
+  .hero-sub, .section-sub{color:var(--text-secondary); font-size:16px; line-height:1.5; max-width:46ch; margin:0 auto;}
+  .hero-sub{margin-bottom:34px;}
+  .pill-btn{
+    display:inline-flex; align-items:center; gap:8px; background:var(--text); color:#fff;
+    border:none; border-radius:8px; font-family:var(--font); font-weight:600; font-size:14px;
+    padding:11px 22px; cursor:pointer; transition:transform .2s cubic-bezier(.22,1,.36,1), opacity .2s ease;
+  }
+  .pill-btn:hover{transform:translateY(-1px); opacity:0.85;}
+  .pill-btn:active{transform:translateY(0) scale(0.98);}
+
+  .hero-chat-card{
+    max-width:600px; margin:0 auto; text-align:left;
+    background:#fff; border:1px solid var(--border); border-radius:22px;
+    padding:20px 22px; box-shadow:0 24px 60px -24px rgba(20,23,26,0.18);
+  }
+
+  .pull-quote{padding:72px 24px; text-align:center; max-width:760px; margin:0 auto;}
+  @media (max-width:700px){ .pull-quote{padding:48px 24px;} }
+  .pull-quote p{
+    font-family:var(--font-serif); font-style:normal; font-weight:400;
+    font-size:clamp(22px, 3.4vw, 34px); line-height:1.3; letter-spacing:-0.01em;
+    color:var(--text); margin:0;
+  }
+  .pull-quote em{font-style:normal; color:var(--text); font-weight:500;}
+
+  .how-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:20px;}
+  .how-step{
+    position:relative; text-align:center; background:var(--panel);
+    border:1px solid var(--border); border-radius:var(--radius);
+    padding:32px 22px 26px; box-shadow:0 1px 2px rgba(20,15,45,0.04);
+    transition:transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease, border-color .25s ease;
+  }
+  .how-step:hover{transform:translateY(-5px); box-shadow:0 18px 34px -14px rgba(20,15,45,0.2); border-color:var(--border-strong);}
+  .how-step-num{
+    width:40px; height:40px; border-radius:50%; margin:0 auto 18px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font); font-size:16px; font-weight:600; color:#fff; flex-shrink:0;
+  }
+  .how-step:nth-child(1) .how-step-num{background:var(--blue);}
+  .how-step:nth-child(2) .how-step-num{background:var(--owner-collaborative);}
+  .how-step:nth-child(3) .how-step-num{background:var(--owner-ai);}
+  .how-visual{
+    height:96px; background:var(--panel-2); border-radius:10px;
+    margin-bottom:16px; display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+    gap:7px; padding:18px;
+  }
+  .how-step h3{font-size:14.5px; font-weight:600; margin:0 0 6px;}
+  .how-step p{font-size:13px; color:var(--text-secondary); line-height:1.5; margin:0;}
+  .how-modal{flex-direction:row; align-items:center; justify-content:center; gap:12px; width:100%;}
+  .how-icon{
+    width:34px;height:34px; border-radius:8px; background:#fff; border:1px solid var(--border);
+    color:var(--text-secondary); display:flex;align-items:center;justify-content:center; flex-shrink:0;
+  }
+  .how-visual-2{align-items:center; justify-content:center;}
+  .how-axes{display:flex; flex-wrap:wrap; gap:5px; justify-content:center;}
+  .how-axis-chip{font-size:9.5px; color:var(--text-secondary); background:#fff; border:1px solid var(--border); border-radius:999px; padding:3px 8px;}
+  .how-mini-badge{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:600; letter-spacing:0.03em; text-transform:uppercase;}
+  .how-mini-badge::before{content:''; width:6px;height:6px;border-radius:50%; background:currentColor; flex-shrink:0;}
+  .how-mini-badge-human{color:var(--owner-human-text);}
+  .how-mini-badge-ai{color:var(--owner-ai-text);}
+  .how-mini-badge-split{color:var(--owner-split-text);}
+  @media (max-width:640px){
+    .how-grid{grid-template-columns:1fr; gap:28px;}
+  }
+
+  .axes-grid, .axes-track{display:grid; grid-template-columns:repeat(4, 1fr); gap:16px;}
+  .axis-card{background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:22px 20px;}
+  .axis-card-label{font-weight:600; font-size:14px; margin:0 0 8px;}
+  .axis-card-desc{font-size:12.5px; color:var(--text-secondary); line-height:1.55; margin:0;}
+  .axis-scale{margin-top:16px;}
+  .axis-scale-track{height:5px; border-radius:999px; background:linear-gradient(to right, var(--panel-2), var(--text));}
+  .axis-scale-labels{display:flex; justify-content:space-between; margin-top:8px; font-size:10.5px; color:var(--text-muted); font-weight:600; letter-spacing:0.02em;}
+  .axis-card[data-axis-index="0"] .axis-scale-track{background:linear-gradient(to right, var(--blue-soft), var(--blue));}
+  .axis-card[data-axis-index="1"] .axis-scale-track{background:linear-gradient(to right, var(--owner-collaborative-soft), var(--owner-collaborative));}
+  .axis-card[data-axis-index="2"] .axis-scale-track{background:linear-gradient(to right, var(--owner-ai-soft), var(--owner-ai));}
+  .axis-card[data-axis-index="3"] .axis-scale-track{background:linear-gradient(to right, var(--owner-split-soft), var(--owner-split));}
+  @media (max-width:900px){ .axes-grid, .axes-track{grid-template-columns:1fr 1fr;} }
+  @media (max-width:560px){ .axes-grid, .axes-track{grid-template-columns:1fr;} }
+  .axes-nav{display:none;}
+
+  /* Desktop-only pinned scrollytelling: label + nav stick while axis panels scroll past. */
+  @media (min-width:901px){
+    .axes-scrolly{display:grid; grid-template-columns:0.85fr 1.15fr; gap:64px; align-items:start;}
+    .axes-sticky{position:sticky; top:120px;}
+    .axes-nav{display:flex; flex-direction:column; gap:2px;}
+    .axes-nav-item{font-size:14px; color:var(--text-muted); padding:11px 0 11px 18px; border-left:2px solid var(--border); transition:color .3s ease, border-color .3s ease;}
+    .axes-nav-item.is-active{color:var(--text); font-weight:600; border-left-color:var(--blue);}
+    .axes-track{display:block;}
+    .axes-panel{
+      background:none; border:none; border-radius:0; padding:0;
+      min-height:56vh; display:flex; flex-direction:column; justify-content:center;
+      opacity:0.32; transform:translateY(10px);
+      transition:opacity .5s ease, transform .5s ease;
+    }
+    .axes-panel:last-child{min-height:30vh;}
+    .axes-panel.is-active{opacity:1; transform:translateY(0);}
+    .axes-panel .axis-card-label{font-family:var(--font-serif); font-weight:400; font-size:clamp(26px, 2.6vw, 36px); margin:0 0 14px;}
+    .axes-panel .axis-card-desc{font-size:16px; line-height:1.6; color:var(--text-secondary); max-width:50ch;}
+    .axes-panel .axis-scale{margin-top:32px; max-width:420px;}
+    .axes-panel .axis-scale-track{height:6px;}
+    .axes-panel .axis-scale-labels{font-size:13px;}
+  }
+
+  .owner-intro{padding-bottom:40px;}
+  @media (max-width:700px){ .owner-intro{padding-bottom:24px;} }
+
+  .owner-bands-wrap{padding-bottom:88px;}
+  @media (max-width:700px){ .owner-bands-wrap{padding-bottom:56px;} }
+
+  .owner-band{
+    position:sticky;
+    border-radius:var(--radius); border:1px solid var(--border);
+    padding:40px; margin-bottom:24px;
+  }
+  .owner-band-human{background:var(--owner-human-soft);}
+  .owner-band-ai{background:var(--owner-ai-soft);}
+  .owner-band-collaborative{background:var(--owner-collaborative-soft);}
+  .owner-band-split{background:var(--owner-split-soft);}
+  .owner-band-inner{display:grid; grid-template-columns:1.15fr 0.85fr; gap:36px; align-items:center;}
+
+  .owner-band-pill{
+    display:inline-block; padding:5px 14px; border-radius:999px; color:#fff;
+    font-size:11px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:16px;
+  }
+  .owner-band-pill-human{background:var(--owner-human);}
+  .owner-band-pill-ai{background:var(--owner-ai);}
+  .owner-band-pill-collaborative{background:var(--owner-collaborative);}
+  .owner-band-pill-split{background:var(--owner-split);}
+
+  .owner-band-headline{font-size:clamp(22px, 3vw, 30px); font-weight:700; letter-spacing:-0.02em; line-height:1.25; margin:0 0 14px;}
+  .owner-band-accent-human{color:var(--owner-human-text);}
+  .owner-band-accent-ai{color:var(--owner-ai-text);}
+  .owner-band-accent-collaborative{color:var(--owner-collaborative-text);}
+  .owner-band-accent-split{color:var(--owner-split-text);}
+
+  .owner-band-desc{font-size:14px; line-height:1.6; max-width:42ch; margin:0; color:var(--text-secondary);}
+  .owner-band-human .owner-band-desc{color:var(--owner-human-text);}
+  .owner-band-ai .owner-band-desc{color:var(--owner-ai-text);}
+  .owner-band-collaborative .owner-band-desc{color:var(--owner-collaborative-text);}
+  .owner-band-split .owner-band-desc{color:var(--owner-split-text);}
+
+  .owner-band-visual{
+    height:150px; border-radius:var(--radius); border:1px solid var(--border); background:#fff;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .owner-band-human .owner-band-visual{color:var(--owner-human-text);}
+  .owner-band-ai .owner-band-visual{color:var(--owner-ai-text);}
+  .owner-band-collaborative .owner-band-visual{color:var(--owner-collaborative-text);}
+  .owner-band-split .owner-band-visual{color:var(--owner-split-text);}
+
+  @media (max-width:760px){
+    .owner-band{padding:28px 24px;}
+    .owner-band-inner{grid-template-columns:1fr; gap:22px;}
+    .owner-band-visual{order:-1; height:110px;}
+    .owner-band-desc{max-width:none;}
+  }
+
+  .hist-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 8px;
+    margin:0 -8px; border-bottom:1px solid var(--border); border-radius:8px; cursor:pointer;
+    transition:background-color .2s ease;
+  }
+  .hist-item:last-child{border-bottom:none;}
+  .hist-item:hover{background:var(--panel-2);}
+  .hist-item:hover .hist-label{color:var(--text);}
+  .hist-label{font-size:13px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; transition:color .2s ease;}
+  .hist-meta{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+  .hist-date{font-size:11px; color:var(--text-muted);}
+  .hist-actions{display:flex; align-items:center; gap:16px; margin-top:14px;}
+  .clear-hist{
+    position:relative; background:none; border:none; color:var(--text-muted); font-size:12px;
+    cursor:pointer; padding:0;
+  }
+  .clear-hist::after, .new-project-btn::after{
+    content:''; position:absolute; left:0; right:0; bottom:-2px; height:1px; background:currentColor;
+    transform:scaleX(0); transform-origin:center; transition:transform .25s ease;
+  }
+  .clear-hist:hover::after, .new-project-btn:hover::after{transform:scaleX(1);}
+  .card{
+    background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+    padding:22px 24px; margin-bottom:16px; transition:border-color .25s ease;
+  }
+  .card:hover{border-color:var(--border-strong);}
+  .card h2{font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin:0 0 14px;}
+  input[type=password], input[type=text], textarea{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:10px;
+    color:var(--text); font-family:var(--font); font-size:14px; padding:11px 13px; resize:vertical;
+    transition:border-color .25s ease, box-shadow .25s ease;
+  }
+  input:focus, textarea:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft);}
+  .prompt-chip{
+    display:inline-flex; align-items:center; background:var(--panel-2); border:1px solid var(--border); border-radius:999px;
+    color:var(--text-secondary); font-family:var(--font); font-size:12px; padding:6px 12px; cursor:pointer;
+    transition:opacity .2s ease, border-color .2s ease; margin-bottom:12px;
+  }
+  .prompt-chip:hover{border-color:var(--border-strong); color:var(--text);}
+  #results{display:none;}
+  .empty-state{text-align:center; padding:44px 20px; color:var(--text-muted); border:1px dashed var(--border); border-radius:var(--radius);}
+  .empty-mark{font-family:var(--font-serif); font-style:normal; font-weight:500; font-size:26px; color:var(--text-secondary); margin-bottom:8px;}
+  .empty-state p{font-size:13.5px; margin:0 auto; max-width:36ch;}
+  .stakes-banner{
+    background:var(--panel-2); border:1px solid var(--border);
+    border-radius:var(--radius); padding:14px 18px; margin-bottom:16px;
+    font-size:13.5px; color:var(--text-secondary); line-height:1.55;
+  }
+  .stakes-banner b{color:var(--text); font-weight:600;}
+  .stage-card{
+    background:#fff; border:1px solid var(--border);
+    border-radius:var(--radius); padding:18px 20px; margin-bottom:14px;
+    opacity:0; transform:translateY(14px); transition:border-color .25s ease;
+    animation:cardIn .6s cubic-bezier(.22,1,.36,1) forwards; animation-delay:calc(var(--i,0) * 70ms);
+  }
+  .stage-card:hover{border-color:var(--border-strong);}
+  @keyframes cardIn{
+    0%{opacity:0; transform:translateY(14px) scale(0.98);}
+    60%{opacity:1; transform:translateY(-2px) scale(1.005);}
+    100%{opacity:1; transform:translateY(0) scale(1);}
+  }
+  .stage-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:6px; flex-wrap:wrap;}
+  .stage-name{font-weight:600; font-size:15px;}
+  .stage-num{color:var(--text-muted); font-weight:500; margin-right:5px; font-variant-numeric:tabular-nums;}
+  .owner-badge{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap;}
+  .owner-badge::before{content:''; width:6px;height:6px;border-radius:50%; background:currentColor; flex-shrink:0;}
+  .owner-human{color:var(--owner-human-text);}
+  .owner-ai{color:var(--owner-ai-text);}
+  .owner-collaborative{color:var(--owner-collaborative-text);}
+  .owner-split{color:var(--owner-split-text);}
+  .owner-split::before{background:linear-gradient(90deg, var(--owner-human), var(--owner-ai));}
+  .stage-summary{font-size:14px; color:var(--text); margin:0 0 10px; font-weight:500;}
+  .axes-row{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .axis-pill{font-size:10.5px; color:var(--text-secondary); background:var(--panel-2); border:1px solid var(--border); border-radius:999px; padding:3px 9px;}
+  .stage-reasoning{font-size:13.5px; color:var(--text-secondary); margin:0;}
+  .stage-parts{margin-top:12px; display:flex; flex-direction:column; gap:8px;}
+  .stage-part{background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:9px 12px;}
+  .stage-part-head{display:flex; align-items:center; gap:8px; margin-bottom:3px; flex-wrap:wrap;}
+  .stage-part-label{font-size:13px; font-weight:600;}
+  .stage-part-reasoning{font-size:12.5px; color:var(--text-secondary); margin:0;}
+  .share-row{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;}
+  .share-btn{
+    background:var(--text); border:none; border-radius:8px; color:#fff; font-size:12px;
+    padding:7px 12px; cursor:pointer; transition:opacity .2s ease, transform .15s ease;
+  }
+  .share-btn:hover{opacity:0.85; transform:translateY(-1px);}
+  .share-btn:active{transform:translateY(0);}
+  .new-project-btn{
+    position:relative; background:none; border:none; color:var(--text-muted); font-size:12px;
+    cursor:pointer; padding:7px 4px;
+  }
+  .chat-log{display:flex; flex-direction:column; gap:10px; max-height:360px; overflow-y:auto; margin-bottom:14px;}
+  .chat-msg{max-width:85%; padding:9px 12px; border-radius:12px; font-size:13.5px; line-height:1.5; white-space:pre-wrap;}
+  .chat-msg.user{align-self:flex-end; background:var(--blue-soft); border:1px solid var(--border);}
+  .chat-msg.assistant{align-self:flex-start; background:var(--panel-2); border:1px solid var(--border);}
+  .chat-msg.pending{color:var(--text-muted);}
+  .chat-loading{display:inline-flex; align-items:center; gap:8px;}
+  .chat-loading-icon{display:block; flex-shrink:0;}
+  .triage-anim-icon circle{transform-box:fill-box; animation:triageDrop 4.2s cubic-bezier(.65,0,.35,1) infinite;}
+  @keyframes triageDrop{
+    0%{transform:translateY(0);}
+    55%{transform:translateY(50px);}
+    100%{transform:translateY(0);}
+  }
+  .chat-input-row{display:flex; gap:8px;}
+  .chat-input-row input{flex:1;}
+  .chat-send{
+    background:var(--text); color:#fff; border:none; border-radius:10px; font-family:var(--font);
+    font-weight:600; font-size:13px; padding:0 16px; cursor:pointer; transition:opacity .2s ease;
+  }
+  .chat-send:hover:not(:disabled){opacity:0.85;}
+  .chat-send:disabled{opacity:0.4; cursor:default;}
+  .chat-error{
+    background:var(--red-soft); border:1px solid var(--red); color:var(--red-text);
+    border-radius:8px; padding:8px 10px; font-size:12.5px; margin-top:10px;
+  }
+  .hint{font-size:12px; color:var(--text-muted); margin:10px 0 0;}
+  footer{text-align:center; color:var(--text-muted); font-size:12px; line-height:1.6; padding:32px 24px; max-width:56ch; margin:0 auto;}
+  .footer-lockup{display:inline-flex; align-items:center; gap:8px; color:var(--text); font-family:var(--font); font-weight:600; font-size:15px; letter-spacing:-0.01em; margin-bottom:14px;}
+  .footer-lockup svg{display:block;}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header>
+  <div class="nav-pill">
+    <a class="brand" href="#mainHero">
+      <svg class="brand-mark" width="26" height="29" viewBox="0 0 100 110" fill="var(--text)" aria-hidden="true">
+        <filter id="navMarkGoo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="b"></feGaussianBlur><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11"></feColorMatrix></filter>
+        <g filter="url(#navMarkGoo)">
+          <rect x="12" y="18" width="44" height="26" rx="13"></rect>
+          <rect x="59" y="18" width="26" height="26" rx="13"></rect>
+          <rect x="37" y="46" width="24" height="46" rx="12"></rect>
+        </g>
+      </svg>
+      <h1>Triage</h1>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#howTitle">How it works</a>
+      <a href="#methodTitle">The method</a>
+      <a href="#ownerTitle">Ownership</a>
+    </nav>
+    <button class="nav-cta" type="button" id="navCta">Start allocating</button>
+    <button class="nav-toggle" type="button" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+      <svg class="nav-toggle-icon-open" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="2" y1="6" x2="18" y2="6"/><line x1="2" y1="14" x2="18" y2="14"/></svg>
+      <svg class="nav-toggle-icon-close" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="3" x2="17" y2="17"/><line x1="17" y1="3" x2="3" y2="17"/></svg>
+    </button>
+    <div class="nav-dropdown" id="navDropdown">
+      <div class="nav-dropdown-inner">
+        <a href="#howTitle">How it works</a>
+        <a href="#methodTitle">The method</a>
+        <a href="#ownerTitle">Ownership</a>
+        <button class="nav-cta" type="button" id="navCtaMobile">Start allocating</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="mainHero">
+  <div class="wrap hero-grid">
+    <div class="hero-content">
+      <h2 class="headline"><em>Decide</em> who's in charge.</h2>
+      <p class="hero-sub">Describe a design project. Get told which stages a human should own, which an AI should own, and which should split, with reasoning grounded in your actual brief instead of a template.</p>
+
+      <div class="hero-chat-card" id="chatCardWrap">
+        <div class="chat-log" id="chatLog"></div>
+        <button type="button" class="prompt-chip" id="fillExample">Try an example</button>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" placeholder="e.g. I want to build a website for a high-end architecture studio…" autocomplete="off">
+          <button class="chat-send" id="chatSendBtn" type="button">Send</button>
+        </div>
+        <div class="chat-error" id="chatErrorBox" style="display:none"></div>
+        <p class="hint" id="freeRemainingNote"></p>
+      </div>
+    </div>
+    <div class="hero-graphic">
+      <img src="images/hero-geo-grid.png" alt="" aria-hidden="true">
+    </div>
+  </div>
+</section>
+
+<section class="pull-quote">
+  <p>The best design process is defined by who it <em>doesn't</em> let touch it.</p>
+</section>
+
+<section class="section" aria-labelledby="howTitle">
+  <div class="wrap">
+    <div class="section-head narrow section-head-left section-head-geo">
+      <svg class="geo-tile" viewBox="0 0 300 300" aria-hidden="true">
+        <rect x="0" y="0" width="150" height="150" fill="var(--red)"/>
+        <path d="M150,0 A150,150 0 0 1 0,150 L0,0 Z" fill="var(--text)"/>
+        <path d="M0,90 A60,60 0 0 0 60,150 L0,150 Z" fill="#fff"/>
+        <rect x="150" y="0" width="150" height="150" fill="var(--red)"/>
+        <rect x="225" y="35" width="70" height="70" fill="#fff" transform="rotate(45 260 70)"/>
+        <rect x="0" y="150" width="150" height="150" fill="var(--text)"/>
+        <polygon points="0,300 75,150 75,300" fill="var(--blue)"/>
+        <rect x="150" y="150" width="150" height="150" fill="var(--text)"/>
+        <polygon points="150,150 300,150 300,300" fill="var(--owner-collaborative)"/>
+      </svg>
+      <div class="section-head-geo-text">
+        <h2 class="headline"><em>Three</em> steps, no more.</h2>
+        <p class="section-sub" id="howTitle">Describe, reason, allocate — nothing improvised in between.</p>
+      </div>
+    </div>
+    <div class="how-grid">
+      <div class="how-step">
+        <div class="how-step-num" aria-hidden="true">1</div>
+        <div class="how-visual how-modal" aria-hidden="true">
+          <span class="how-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+        </div>
+        <h3>Describe your project</h3>
+        <p>Tell it what you're building, who it's for, and what's at stake, in a chat rather than a form.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num" aria-hidden="true">2</div>
+        <div class="how-visual how-visual-2" aria-hidden="true">
+          <div class="how-axes">
+            <span class="how-axis-chip">Reversibility</span><span class="how-axis-chip">Subjectivity</span><span class="how-axis-chip">Divergence</span><span class="how-axis-chip">Verifiability</span>
+          </div>
+        </div>
+        <h3>It reasons stage by stage</h3>
+        <p>A fixed taxonomy, weighed against only the axes that actually matter for each one.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num" aria-hidden="true">3</div>
+        <div class="how-visual" aria-hidden="true">
+          <span class="how-mini-badge how-mini-badge-human">Human-led</span>
+          <span class="how-mini-badge how-mini-badge-ai">AI-led</span>
+          <span class="how-mini-badge how-mini-badge-split">Split</span>
+        </div>
+        <h3>Get an allocation, not a template</h3>
+        <p>Human, AI, collaborative, or split down to the sub-task, with every call grounded in your brief.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section band-tint">
+  <div class="wrap">
+    <div class="section-head narrow">
+      <svg class="geo-tile" viewBox="0 0 300 300" aria-hidden="true" style="width:52px; height:52px; margin:0 auto 20px; border-radius:8px; overflow:hidden;">
+        <rect x="0" y="0" width="150" height="150" fill="var(--red)"/>
+        <circle cx="75" cy="75" r="55" fill="var(--owner-ai-text)"/>
+        <circle cx="75" cy="75" r="25" fill="#fff"/>
+        <rect x="150" y="0" width="150" height="150" fill="var(--blue)"/>
+        <rect x="195" y="0" width="18" height="150" fill="#fff"/>
+        <rect x="240" y="0" width="18" height="150" fill="#fff"/>
+        <rect x="0" y="150" width="150" height="150" fill="var(--text)"/>
+        <path d="M150,150 A150,150 0 0 1 0,300 L0,150 Z" fill="var(--red)"/>
+        <rect x="150" y="150" width="150" height="150" fill="#fff"/>
+        <circle cx="225" cy="225" r="40" fill="var(--owner-collaborative)"/>
+      </svg>
+      <h2 class="headline" id="methodTitle"><em>Weigh</em> what matters.</h2>
+      <p class="section-sub">Every stage is reasoned against four axes; only the ones that actually drove the call get named.</p>
+    </div>
+    <div class="axes-scrolly">
+      <div class="axes-sticky">
+        <div class="axes-nav" id="axesNav"></div>
+      </div>
+      <div class="axes-track" id="axesGrid"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section owner-intro" aria-labelledby="ownerTitle">
+  <div class="wrap">
+    <div class="section-head narrow section-head-left section-head-geo">
+      <svg class="geo-tile" viewBox="0 0 300 300" aria-hidden="true">
+        <rect x="0" y="0" width="150" height="150" fill="var(--owner-collaborative)"/>
+        <polygon points="0,0 150,75 0,150" fill="var(--blue)"/>
+        <rect x="150" y="0" width="150" height="150" fill="var(--text)"/>
+        <circle cx="225" cy="75" r="55" fill="var(--red)"/>
+        <rect x="0" y="150" width="150" height="150" fill="var(--red)"/>
+        <rect x="30" y="180" width="90" height="90" fill="#fff" transform="rotate(45 75 225)"/>
+        <rect x="150" y="150" width="150" height="150" fill="var(--blue)"/>
+        <polygon points="150,300 300,150 300,300" fill="var(--text)"/>
+      </svg>
+      <div class="section-head-geo-text">
+        <h2 class="headline" id="ownerTitle"><em>Split</em> when it's genuinely split.</h2>
+        <p class="section-sub">Human, AI, collaborative — or both, down to the sub-task.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="wrap owner-bands-wrap" id="ownerBands"></div>
+
+<section class="section" id="resultsSection">
+  <div class="wrap narrow">
+    <div id="historyCard"></div>
+    <main id="main">
+      <div id="results"></div>
+      <div class="empty-state" id="emptyState">
+        <div class="empty-mark">—</div>
+        <p>Describe a project above and its stage-by-stage allocation will appear here.</p>
+      </div>
+    </main>
+  </div>
+</section>
+
+<section class="section band-tint hero" style="padding:80px 0;">
+  <div class="wrap narrow">
+    <svg class="triage-anim-icon" width="52" height="57" viewBox="0 0 100 110" fill="var(--text)" aria-hidden="true" style="display:block; margin:0 auto 20px;">
+      <filter id="closingCtaGoo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="b"></feGaussianBlur><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11"></feColorMatrix></filter>
+      <g filter="url(#closingCtaGoo)">
+        <rect x="12" y="18" width="44" height="26" rx="13"></rect>
+        <rect x="59" y="18" width="26" height="26" rx="13"></rect>
+        <rect x="37" y="46" width="24" height="46" rx="12"></rect>
+        <circle cx="49" cy="26" r="5.5"></circle>
+      </g>
+    </svg>
+    <h2 class="headline"><em>Start</em> allocating.</h2>
+    <p class="hero-sub" style="margin-bottom:0;">Paste a brief. Get an allocation grounded in it, not a template.</p>
+    <button class="pill-btn" id="closingCta" type="button" style="margin-top:28px;">
+      Back to the chat
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+  </div>
+</section>
+
+<section class="section illustration-band">
+  <div class="wrap">
+    <img src="images/hero-illustration.png" alt="" class="illustration-img">
+  </div>
+</section>
+
+<footer>
+  <div class="footer-lockup">
+    <svg width="18" height="20" viewBox="0 0 100 110" fill="currentColor" aria-hidden="true">
+      <filter id="footerLockupGoo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="b"></feGaussianBlur><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11"></feColorMatrix></filter>
+      <g filter="url(#footerLockupGoo)">
+        <rect x="12" y="18" width="44" height="26" rx="13"></rect>
+        <rect x="59" y="18" width="26" height="26" rx="13"></rect>
+        <rect x="37" y="46" width="24" height="46" rx="12"></rect>
+      </g>
+    </svg>
+    <span>Triage</span>
+  </div>
+  <p style="margin:0;">Your project description is sent to a small server function we run, which calls Anthropic on your behalf using our key. Nothing you type is stored anywhere. History of past breakdowns lives only in your browser's local storage.</p>
+</footer>
+
+<script>
+const STAGES = [
+  { key: "discovery",     name: "Discovery and constraints",         brief: "Defining the problem, audience, budget, timeline, technical constraints, and what success looks like." },
+  { key: "positioning",   name: "Brand positioning",                 brief: "Deciding what the brand stands for, how it's differentiated, and the tone it takes with its audience." },
+  { key: "ia",             name: "Information architecture",          brief: "Structuring content and navigation — what pages exist, how they're organized, what order things are encountered in." },
+  { key: "visual",        name: "Visual direction",                  brief: "Establishing the visual language — color, type, imagery style, overall aesthetic territory." },
+  { key: "layout",        name: "Layout composition",                brief: "Translating visual direction into specific page compositions and grids." },
+  { key: "copy",          name: "Copywriting",                       brief: "Writing the actual words — headlines, body copy, microcopy, voice." },
+  { key: "prototyping",   name: "Prototyping and interaction design", brief: "Building interactive flows, transitions, and the feel of using the thing." },
+  { key: "testing",       name: "User testing",                      brief: "Getting real people to use the thing and reacting to what happens." },
+  { key: "accessibility", name: "Accessibility",                     brief: "Ensuring the design works for people with disabilities, per WCAG and related standards." },
+  { key: "technical",     name: "Technical build",                   brief: "Implementing the design as working code and infrastructure." }
+];
+
+const AXES = [
+  { key: "reversibility",           label: "Reversibility",             desc: "How expensive it is to undo this decision later, once it's been acted on.",                                          scaleLow: "Cheap to undo",         scaleHigh: "Effectively permanent" },
+  { key: "subjectivity",            label: "Subjectivity & values",     desc: "Whether the decision encodes a judgment specific to this project's identity that can't be benchmarked against a generic standard.", scaleLow: "Objective standard",     scaleHigh: "Subjective judgment call" },
+  { key: "divergence_convergence",  label: "Divergence vs convergence", desc: "Whether the stage is about generating many options quickly, or committing to one.",                                    scaleLow: "Generating options",    scaleHigh: "Committing to one" },
+  { key: "verifiability",           label: "Verifiability",             desc: "Whether the output can be checked against an objective standard, or requires a real human's subjective reaction to judge.",         scaleLow: "Objectively checkable", scaleHigh: "Needs human judgment" }
+];
+
+const OWNER_LABEL = { human: "Human-led", ai: "AI-led", collaborative: "Collaborative", split: "Split" };
+const OWNER_DESC = {
+  human: "The judgment is specific to this project's identity, expensive to reverse, or needs a real person's reaction — no generic benchmark substitutes.",
+  ai: "Fast, divergent, or checkable against an objective standard — the kind of work AI genuinely speeds up without a hidden cost.",
+  collaborative: "A continuous back-and-forth with no clean seam between who proposes and who decides.",
+  split: "The stage's own logic produces two differently-owned sub-parts — one clean label would flatten something real."
+};
+const EXAMPLE_BRIEF = "I want to build a website for a high-end architecture studio. It needs to attract wealthy residential clients and communicate that we're extremely sophisticated without feeling pretentious.";
+const HISTORY_KEY = 'allocator_history_v1';
+
+const els = {
+  chatLog: document.getElementById('chatLog'),
+  chatInput: document.getElementById('chatInput'),
+  chatSendBtn: document.getElementById('chatSendBtn'),
+  chatErrorBox: document.getElementById('chatErrorBox'),
+  results: document.getElementById('results'),
+  emptyState: document.getElementById('emptyState'),
+  historyCard: document.getElementById('historyCard')
+};
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function flashButton(btn, msg){
+  const original = btn.textContent;
+  btn.textContent = msg;
+  setTimeout(() => { btn.textContent = original; }, 1500);
+}
+
+/* ---------- static explainer sections ---------- */
+
+function renderAxesGrid(){
+  document.getElementById('axesGrid').innerHTML = AXES.map((a, i) =>
+    '<div class="axis-card axes-panel" data-axis-index="' + i + '">' +
+      '<p class="axis-card-label">' + escapeHtml(a.label) + '</p>' +
+      '<p class="axis-card-desc">' + escapeHtml(a.desc) + '</p>' +
+      '<div class="axis-scale">' +
+        '<div class="axis-scale-track"></div>' +
+        '<div class="axis-scale-labels"><span>' + escapeHtml(a.scaleLow) + '</span><span>' + escapeHtml(a.scaleHigh) + '</span></div>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+  document.getElementById('axesNav').innerHTML = AXES.map((a, i) =>
+    '<div class="axes-nav-item" data-axis-index="' + i + '">' + escapeHtml(a.label) + '</div>'
+  ).join('');
+  setupAxesScrolly();
+}
+
+function setupAxesScrolly(){
+  if (!window.matchMedia('(min-width:901px)').matches) return;
+  const panels = [...document.querySelectorAll('.axes-panel')];
+  const navItems = [...document.querySelectorAll('.axes-nav-item')];
+  if (!panels.length) return;
+  let ticking = false;
+  function update(){
+    ticking = false;
+    const center = window.innerHeight / 2;
+    let closest = null, closestDist = Infinity;
+    panels.forEach(p => {
+      const rect = p.querySelector('.axis-card-label').getBoundingClientRect();
+      const dist = Math.abs((rect.top + rect.bottom) / 2 - center);
+      if (dist < closestDist) { closestDist = dist; closest = p; }
+    });
+    panels.forEach(p => p.classList.toggle('is-active', p === closest));
+    const idx = closest ? closest.dataset.axisIndex : null;
+    navItems.forEach(n => n.classList.toggle('is-active', n.dataset.axisIndex === idx));
+  }
+  window.addEventListener('scroll', () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(update); }
+  }, { passive: true });
+  update();
+}
+
+const OWNER_HEADLINE = {
+  human:         { lead: "Keep humans where the call",        accent: "is genuinely theirs to make." },
+  ai:            { lead: "Let AI move fast where speed",      accent: "doesn't cost you anything real." },
+  collaborative: { lead: "Some stages are a real",             accent: "back-and-forth, not a handoff." },
+  split:         { lead: "When one stage hides two jobs,",     accent: "split it down to the sub-task." }
+};
+const OWNER_ICON = {
+  human: '<circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>',
+  ai: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+  collaborative: '<circle cx="9" cy="7" r="4"/><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>',
+  split: '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>'
+};
+
+function renderOwnerBands(){
+  const owners = ['human', 'ai', 'collaborative', 'split'];
+  const PEEK_BASE = 24, PEEK_STEP = 18;
+  document.getElementById('ownerBands').innerHTML = owners.map((o, i) => {
+    const h = OWNER_HEADLINE[o];
+    const top = PEEK_BASE + i * PEEK_STEP;
+    return '<div class="owner-band owner-band-' + o + '" style="top:' + top + 'px">' +
+      '<div class="owner-band-inner">' +
+        '<div>' +
+          '<span class="owner-band-pill owner-band-pill-' + o + '">' + escapeHtml(OWNER_LABEL[o]) + '</span>' +
+          '<h3 class="owner-band-headline">' + escapeHtml(h.lead) + ' <span class="owner-band-accent-' + o + '">' + escapeHtml(h.accent) + '</span></h3>' +
+          '<p class="owner-band-desc">' + escapeHtml(OWNER_DESC[o]) + '</p>' +
+        '</div>' +
+        '<div class="owner-band-visual" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + OWNER_ICON[o] + '</svg></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+renderAxesGrid();
+renderOwnerBands();
+
+/* ---------- state ---------- */
+
+const BRIEF_PROMPT_TEXT = "Tell me what you're building, who it's for, and what's actually at stake if it goes wrong.";
+const NEW_PROJECT_PROMPT_TEXT = "New project — tell me what you're building, who it's for, and what's actually at stake if it goes wrong.";
+
+let apiTurns = [];
+let clarificationAsked = false;
+let originalBrief = '';
+let runComplete = false;
+let uiMessages = [{ role: 'assistant', text: BRIEF_PROMPT_TEXT }];
+
+const CHAT_LOADING_ICON = '<svg class="chat-loading-icon triage-anim-icon" width="22" height="24" viewBox="0 0 100 110" aria-hidden="true"><filter id="chatLoadingGoo" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="b"></feGaussianBlur><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11"></feColorMatrix></filter><g filter="url(#chatLoadingGoo)" fill="currentColor"><rect x="12" y="18" width="44" height="26" rx="13"></rect><rect x="59" y="18" width="26" height="26" rx="13"></rect><rect x="37" y="46" width="24" height="46" rx="12"></rect><circle cx="49" cy="26" r="5.5"></circle></g></svg>';
+
+function renderChatLog(messages){
+  els.chatLog.innerHTML = messages.map(m => {
+    const cls = m.role === 'user' ? 'user' : (m.pending ? 'assistant pending' : 'assistant');
+    const content = m.pending
+      ? '<span class="chat-loading">' + CHAT_LOADING_ICON + escapeHtml(m.text) + '</span>'
+      : escapeHtml(m.text).replace(/\n/g, '<br>');
+    return '<div class="chat-msg ' + cls + '">' + content + '</div>';
+  }).join('');
+  els.chatLog.scrollTop = els.chatLog.scrollHeight;
+}
+renderChatLog(uiMessages);
+
+function updateFreeRemainingNote(remaining){
+  const note = document.getElementById('freeRemainingNote');
+  if (!note) return;
+  if (typeof remaining !== 'number'){ note.textContent = ''; return; }
+  note.textContent = remaining > 0
+    ? 'Free — ' + remaining + ' breakdown' + (remaining === 1 ? '' : 's') + ' left this month.'
+    : 'That was your last free breakdown for this month.';
+}
+
+async function callTriage(mode){
+  const res = await fetch('/api/free-allocate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mode: mode, messages: apiTurns })
+  });
+
+  let body = null;
+  try { body = await res.json(); } catch (e){}
+
+  if (!res.ok){
+    if (body && body.error === 'VISITOR_CAP_REACHED'){
+      const err = new Error("You've used your free breakdowns for this month — more free ones in about " + (body.daysUntilReset || 30) + " day" + (body.daysUntilReset === 1 ? '' : 's') + ".");
+      err.cap = 'visitor';
+      throw err;
+    }
+    if (body && body.error === 'GLOBAL_CAP_REACHED'){
+      const err = new Error("Triage's free tier is fully booked for this month — check back next month.");
+      err.cap = 'global';
+      throw err;
+    }
+    throw new Error((body && body.message) || 'Something went wrong calling Triage.');
+  }
+
+  if (typeof body.freeRemaining === 'number') updateFreeRemainingNote(body.freeRemaining);
+  delete body.freeRemaining;
+  return body;
+}
+
+async function sendMessage(){
+  const text = els.chatInput.value.trim();
+  els.chatErrorBox.style.display = 'none';
+
+  if (!text) return;
+  if (runComplete) return;
+
+  if (!originalBrief) originalBrief = text;
+
+  uiMessages.push({ role: 'user', text: text });
+  uiMessages.push({ role: 'assistant', text: 'Thinking…', pending: true });
+  renderChatLog(uiMessages);
+  els.chatInput.value = '';
+  els.chatInput.disabled = true;
+  els.chatSendBtn.disabled = true;
+
+  apiTurns.push({ role: 'user', content: [{ type: 'text', text: text }] });
+
+  const mode = clarificationAsked ? 'must_answer' : 'may_ask';
+
+  try {
+    const parsed = await callTriage(mode);
+
+    if (mode === 'may_ask' && parsed.needs_clarification && parsed.clarifying_question){
+      clarificationAsked = true;
+      uiMessages.pop();
+      uiMessages.push({ role: 'assistant', text: parsed.clarifying_question });
+      apiTurns.push({ role: 'assistant', content: [{ type: 'text', text: parsed.clarifying_question }] });
+      renderChatLog(uiMessages);
+    } else if (parsed.stages && parsed.stages.length > 0){
+      uiMessages.pop();
+      uiMessages.push({ role: 'assistant', text: 'Here\'s the allocation — see below.' });
+      renderChatLog(uiMessages);
+      renderBreakdown(parsed);
+      saveHistoryEntry(originalBrief, parsed);
+      runComplete = true;
+      showNewProjectAffordance();
+      document.getElementById('resultsSection').scrollIntoView({behavior:'smooth', block:'start'});
+    } else {
+      uiMessages.pop();
+      renderChatLog(uiMessages);
+      els.chatErrorBox.textContent = 'Couldn\'t produce a breakdown from that — try adding a bit more detail and send again.';
+      els.chatErrorBox.style.display = 'block';
+    }
+  } catch (err){
+    uiMessages.pop();
+    renderChatLog(uiMessages);
+    els.chatErrorBox.textContent = err.message || 'Something went wrong calling Triage.';
+    els.chatErrorBox.style.display = 'block';
+  } finally {
+    if (!runComplete){
+      els.chatInput.disabled = false;
+      els.chatSendBtn.disabled = false;
+      els.chatInput.focus();
+    }
+  }
+}
+
+function showNewProjectAffordance(){
+  els.chatInput.disabled = true;
+  els.chatSendBtn.disabled = true;
+  if (document.getElementById('newProjectFromChat')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'new-project-btn';
+  btn.id = 'newProjectFromChat';
+  btn.textContent = 'Start a new project';
+  btn.style.marginTop = '10px';
+  btn.addEventListener('click', resetChat);
+  document.getElementById('chatCardWrap').appendChild(btn);
+}
+
+function resetChat(){
+  apiTurns = [];
+  clarificationAsked = false;
+  originalBrief = '';
+  runComplete = false;
+  uiMessages = [{ role: 'assistant', text: NEW_PROJECT_PROMPT_TEXT }];
+  renderChatLog(uiMessages);
+  els.chatInput.disabled = false;
+  els.chatSendBtn.disabled = false;
+  const btn = document.getElementById('newProjectFromChat');
+  if (btn) btn.remove();
+  els.results.style.display = 'none';
+  els.results.innerHTML = '';
+  els.emptyState.style.display = '';
+  scrollToChat();
+}
+
+els.chatSendBtn.addEventListener('click', sendMessage);
+els.chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+});
+document.getElementById('fillExample').addEventListener('click', () => {
+  els.chatInput.value = EXAMPLE_BRIEF;
+  els.chatInput.focus();
+});
+
+/* ---------- rendering ---------- */
+
+function renderBreakdown(data){
+  window.__lastResult = data;
+  els.emptyState.style.display = 'none';
+
+  let html = '';
+  if (data.stakes_read){
+    html += '<div class="stakes-banner"><b>What\'s actually at stake — </b>' + escapeHtml(data.stakes_read) + '</div>';
+  }
+
+  STAGES.forEach((s, i) => {
+    const d = data.stages.find(x => x.key === s.key) || { owner: 'collaborative', summary: '', axes_used: [], reasoning: 'No allocation returned for this stage.' };
+    const badgeClass = 'owner-' + d.owner;
+    html += '<div class="stage-card" style="--i:' + i + '">';
+    html += '<div class="stage-head"><span class="stage-name"><span class="stage-num">' + (i+1) + '.</span>' + escapeHtml(s.name) + '</span><span class="owner-badge ' + badgeClass + '">' + (OWNER_LABEL[d.owner] || d.owner) + '</span></div>';
+    if (d.summary) html += '<p class="stage-summary">' + escapeHtml(d.summary) + '</p>';
+    if (d.axes_used && d.axes_used.length){
+      html += '<div class="axes-row">' + d.axes_used.map(ak => {
+        const axis = AXES.find(a => a.key === ak);
+        return '<span class="axis-pill">' + escapeHtml(axis ? axis.label : ak) + '</span>';
+      }).join('') + '</div>';
+    }
+    html += '<p class="stage-reasoning">' + escapeHtml(d.reasoning) + '</p>';
+    if (d.owner === 'split' && d.parts && d.parts.length){
+      html += '<div class="stage-parts">' + d.parts.map(p => {
+        return '<div class="stage-part"><div class="stage-part-head"><span class="owner-badge owner-' + p.owner + '">' + (OWNER_LABEL[p.owner] || p.owner) + '</span><span class="stage-part-label">' + escapeHtml(p.label) + '</span></div><p class="stage-part-reasoning">' + escapeHtml(p.reasoning || '') + '</p></div>';
+      }).join('') + '</div>';
+    }
+    html += '</div>';
+  });
+
+  html += '<div class="share-row"><button class="share-btn" id="copyTextBtn">Copy as text</button></div>';
+
+  els.results.innerHTML = html;
+  els.results.style.display = 'block';
+
+  document.getElementById('copyTextBtn').addEventListener('click', (e) => {
+    let text = 'Allocation breakdown\n';
+    if (data.stakes_read) text += 'What\'s at stake: ' + data.stakes_read + '\n';
+    text += '\n';
+    STAGES.forEach(s => {
+      const d = data.stages.find(x => x.key === s.key);
+      if (!d) return;
+      text += s.name + ' — ' + (OWNER_LABEL[d.owner] || d.owner) + '\n';
+      if (d.summary) text += d.summary + '\n';
+      text += d.reasoning + '\n';
+      if (d.owner === 'split' && d.parts){
+        d.parts.forEach(p => { text += '  - ' + p.label + ' (' + (OWNER_LABEL[p.owner] || p.owner) + '): ' + (p.reasoning || '') + '\n'; });
+      }
+      text += '\n';
+    });
+    navigator.clipboard.writeText(text.trim()).then(() => flashButton(e.target, 'Copied'));
+  });
+}
+
+/* ---------- history ---------- */
+
+function loadHistory(){
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+
+function saveHistoryEntry(brief, data){
+  const hist = loadHistory();
+  const entry = { id: Date.now(), label: brief.slice(0,70) + (brief.length > 70 ? '…' : ''), date: new Date().toISOString(), data: data };
+  hist.unshift(entry);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0,20)));
+  renderHistory();
+}
+
+function renderHistory(){
+  const hist = loadHistory();
+  if (!hist.length){ els.historyCard.innerHTML = ''; return; }
+  let html = '<div class="card"><h2>Past allocations</h2>';
+  hist.slice(0,8).forEach(h => {
+    const d = new Date(h.date);
+    const dateStr = (d.getMonth()+1) + '/' + d.getDate() + '/' + String(d.getFullYear()).slice(2);
+    html += '<div class="hist-item" data-id="' + h.id + '"><span class="hist-label">' + escapeHtml(h.label) + '</span><span class="hist-meta"><span class="hist-date">' + dateStr + '</span></span></div>';
+  });
+  html += '<div class="hist-actions"><button class="clear-hist" id="clearHistBtn">Clear history</button></div></div>';
+  els.historyCard.innerHTML = html;
+  els.historyCard.querySelectorAll('.hist-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = Number(el.getAttribute('data-id'));
+      const entry = loadHistory().find(h => h.id === id);
+      if (entry){ renderBreakdown(entry.data); els.results.scrollIntoView({behavior:'smooth', block:'start'}); }
+    });
+  });
+  document.getElementById('clearHistBtn').addEventListener('click', () => {
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistory();
+  });
+}
+
+renderHistory();
+
+/* ---------- misc UI ---------- */
+
+function scrollToChat(){
+  document.getElementById('chatCardWrap').scrollIntoView({behavior:'smooth', block:'center'});
+  els.chatInput.focus({preventScroll:true});
+}
+document.getElementById('closingCta').addEventListener('click', scrollToChat);
+document.getElementById('navCta').addEventListener('click', scrollToChat);
+document.getElementById('navCtaMobile').addEventListener('click', scrollToChat);
+
+/* ---------- mobile nav toggle ---------- */
+
+const navPill = document.querySelector('.nav-pill');
+const navToggle = document.getElementById('navToggle');
+navToggle.addEventListener('click', () => {
+  const isOpen = navPill.classList.toggle('is-open');
+  navToggle.setAttribute('aria-expanded', String(isOpen));
+});
+document.getElementById('navDropdown').addEventListener('click', (e) => {
+  if (e.target.closest('a, button')) navPill.classList.remove('is-open');
+});
+
+/* ---------- hero scramble-text reveal ---------- */
+
+function scrambleReveal(el, opts){
+  opts = opts || {};
+  const startDelay = opts.startDelay || 0;
+  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+  function wrapTextNodes(node){
+    Array.from(node.childNodes).forEach(child => {
+      if (child.nodeType === Node.TEXT_NODE){
+        const frag = document.createDocumentFragment();
+        for (const ch of child.textContent){
+          if (ch === ' '){ frag.appendChild(document.createTextNode(' ')); continue; }
+          const span = document.createElement('span');
+          span.className = 'scramble-char';
+          span.dataset.final = ch;
+          span.textContent = ch;
+          frag.appendChild(span);
+        }
+        child.replaceWith(frag);
+      } else if (child.nodeType === Node.ELEMENT_NODE){
+        wrapTextNodes(child);
+      }
+    });
+  }
+  wrapTextNodes(el);
+
+  const spans = el.querySelectorAll('.scramble-char');
+  spans.forEach((span, i) => {
+    const finalChar = span.dataset.final;
+    const charDelay = startDelay + i * 16;
+    const scrambleDuration = 360 + Math.random() * 200;
+    const t0 = performance.now() + charDelay;
+    function tick(now){
+      if (now < t0){ requestAnimationFrame(tick); return; }
+      if (now - t0 < scrambleDuration){
+        span.textContent = CHARS[(Math.random() * CHARS.length) | 0];
+        requestAnimationFrame(tick);
+      } else {
+        span.textContent = finalChar;
+      }
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  const heroHeadline = document.querySelector('#mainHero .headline');
+  const heroSub = document.querySelector('#mainHero .hero-sub');
+  if (heroHeadline) scrambleReveal(heroHeadline, { startDelay: 80 });
+  if (heroSub) scrambleReveal(heroSub, { startDelay: 260 });
+}
+
+
+</script>
+</body>
+</html>

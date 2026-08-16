@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110" width="400" height="440" role="img" aria-label="Triage">
+  <title>Triage symbol, liquid</title>
+  <filter id="goo-c" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="b"></feGaussianBlur><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 26 -11"></feColorMatrix></filter>
+  <g filter="url(#goo-c)" fill="#000000">
+    <rect x="12" y="18" width="44" height="26" rx="13"></rect>
+    <rect x="59" y="18" width="26" height="26" rx="13"></rect>
+    <rect x="37" y="46" width="24" height="46" rx="12"></rect>
+    <circle cx="49" r="5.5"></circle>
+  </g>
+</svg>
