@@ -149,6 +149,10 @@ export default async (req, context) => {
       const reader = upstreamRes.body.getReader();
       let fullText = '';
       let sseBuffer = '';
+      let stopReason = null;
+      let messageStopSeen = false;
+      const t0 = Date.now();
+      let exitReason = 'natural-done';
       try {
         while (true){
           const { done, value } = await reader.read();
@@ -166,13 +170,21 @@ export default async (req, context) => {
               fullText += evt.delta.text;
               controller.enqueue(encoder.encode(evt.delta.text));
             }
+            if (evt.type === 'message_delta' && evt.delta && evt.delta.stop_reason){
+              stopReason = evt.delta.stop_reason;
+            }
+            if (evt.type === 'message_stop'){
+              messageStopSeen = true;
+            }
           }
         }
       } catch (err) {
         // Upstream stream broke mid-flight — fall through with whatever
         // text was accumulated; the JSON.parse below will fail cleanly
         // and the client shows its generic error rather than hanging.
+        exitReason = 'error: ' + String(err && err.message || err);
       }
+      console.log('[free-allocate] stream ended after ' + (Date.now() - t0) + 'ms, exit=' + exitReason + ', stopReason=' + stopReason + ', messageStopSeen=' + messageStopSeen + ', textLen=' + fullText.length);
 
       let parsed = null;
       try {
