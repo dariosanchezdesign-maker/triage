@@ -1152,7 +1152,7 @@ function scrambleReveal(el, opts){
           const span = document.createElement('span');
           span.className = 'scramble-char';
           span.dataset.final = ch;
-          span.textContent = ch;
+          span.textContent = CHARS[(Math.random() * CHARS.length) | 0];
           frag.appendChild(span);
         }
         child.replaceWith(frag);
