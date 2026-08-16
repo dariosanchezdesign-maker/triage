@@ -2752,3 +2752,25 @@ JS that all 8 `<g>` cells actually rendered (not silently dropped).
 - The visitor/global cap bookkeeping (Blobs reads/writes) still needs the *complete* parsed JSON to know whether the call produced a real breakdown vs. a clarifying question -- moved that logic into the stream's `start()` callback, running once the upstream stream ends and the full text has been reassembled server-side, after all chunks have already been forwarded to the client.
 - `freeRemaining` could no longer be merged into the JSON body up front (its value isn't known until the stream completes, and by then bytes are already flowing) -- solved by appending a `\n<<<FREE_REMAINING:n>>>` sentinel chunk after the JSON, once bookkeeping finishes. Client-side `callTriage()` now reads the response body as a stream, accumulates it, splits off the sentinel via `lastIndexOf`, parses the remaining text as the JSON breakdown (still stripping markdown fences the model occasionally wraps output in, same as before), and reads the trailing number for the free-remaining note.
 - Verified: `node --check` on the function file (syntax-valid), reloaded the local dev server and confirmed no console errors from the restructured client-side `callTriage()`. Not yet re-tested against the live Netlify deploy after this change -- next step is to push, let Netlify auto-deploy, and re-run the same live end-to-end test that surfaced the 502.
+
+## Streaming fix verified live: full end-to-end success (2026-08-16)
+
+- Pushed the streaming fix, Netlify auto-deployed (main@b41ef8a, published in 23s). Re-ran the exact same live test that previously 502'd.
+- Confirmed via the browser's network panel: `POST /api/free-allocate` returned a clean 200, not a 502.
+- Confirmed visually: a complete, real 10-stage breakdown rendered correctly (reasoning, axes scale bars, owner bands, "What's actually at stake" summary), saved correctly to the "Past Allocations" history with today's date.
+- Confirmed the sentinel-based `freeRemaining` communication works end-to-end: the chat card correctly shows "Free — 4 breakdowns left this month." (5 default cap minus the 1 use just spent).
+- This is the first fully successful, real (non-mocked) end-to-end test of this app against a live deploy with a real Anthropic API key -- Anthropic call, Blobs cap persistence, and now the streaming transport are all confirmed working together in production.
+
+## Renamed Netlify project to usetriage (2026-08-16)
+
+- User asked for naming suggestions since "triage" and "triage-ai" were taken (as domain names). Realized the more immediate context was the Netlify project's own subdomain (auto-generated as "lucent-cucurucho-962b67"), not an external domain purchase.
+- Checked live availability directly in Netlify's rename field rather than guessing: "gotriage" -> taken, "usetriage" -> available. Confirmed with the user before committing (renaming changes the live URL).
+- Renamed the project to `usetriage` -> now live at `usetriage.netlify.app`. Verified the new URL actually serves the site correctly (screenshot confirms headline, hero graphic, nav all render).
+- Still open: the "Private by default" visitor-access gate is unrelated to this rename and remains unresolved -- the new URL still shows "This project is private. Only project members can view this site."
+
+## Live 504 after streaming fix: generation itself was still too slow (2026-08-16)
+
+- User reported the live tool still failing. Reproduced directly: first call (clarifying question) succeeded in 8.3s, but the second call (the full 10-stage breakdown, `must_answer` mode) failed with a 504 after running 49.3s per the function log -- worse than the 502 seen before the streaming fix.
+- Verified Netlify's actual documented limit for streaming functions before guessing further: 60s execution / 20MB response. 49.3s is under that ceiling, meaning the streaming transport fix from earlier was necessary but not sufficient -- the real problem is that full-breakdown generation is simply too slow and was creeping right up against whatever the effective limit is, with no safety margin.
+- Rather than keep chasing exact platform timeout numbers, attacked the actual root cause: cut generation time by asking for shorter output. Tightened the JSON schema's reasoning-length instruction from "2-4 sentences" to "1-2 tightly written sentences" (split sub-parts: "1-2 sentences" -> "1 sentence"), added an explicit brevity instruction to the system prompt ("Keep every string as short as it can be while still being specific"), and dropped `max_tokens` from 4000 to 2200 -- both reduces worst-case generation time and gives a hard ceiling well under the 60s streaming limit.
+- Not yet re-tested live -- next step is to push, let Netlify auto-deploy, and re-run the same full-breakdown flow that just 504'd.
