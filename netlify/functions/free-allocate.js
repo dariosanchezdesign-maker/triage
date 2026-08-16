@@ -207,7 +207,7 @@ export default async (req, context) => {
           // actually keeps total wall-clock time short, since the batches
           // run concurrently and each has a much smaller job.
           const batchResults = await Promise.all(
-            STAGE_BATCHES.map(keys => callAnthropicJSON(buildBatchPrompt(keys, clarify.stakes_read), messages, 1500))
+            STAGE_BATCHES.map(keys => callAnthropicJSON(buildBatchPrompt(keys, clarify.stakes_read), messages, 3500))
           );
           globalCallCount += STAGE_BATCHES.length;
 
