@@ -1136,64 +1136,6 @@ document.getElementById('navDropdown').addEventListener('click', (e) => {
   if (e.target.closest('a, button')) navPill.classList.remove('is-open');
 });
 
-/* ---------- hero scramble-text reveal ---------- */
-
-function scrambleReveal(el, opts){
-  opts = opts || {};
-  const startDelay = opts.startDelay || 0;
-  const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-
-  function wrapTextNodes(node){
-    Array.from(node.childNodes).forEach(child => {
-      if (child.nodeType === Node.TEXT_NODE){
-        const frag = document.createDocumentFragment();
-        for (const ch of child.textContent){
-          if (ch === ' '){ frag.appendChild(document.createTextNode(' ')); continue; }
-          const span = document.createElement('span');
-          span.className = 'scramble-char';
-          span.dataset.final = ch;
-          span.textContent = CHARS[(Math.random() * CHARS.length) | 0];
-          frag.appendChild(span);
-        }
-        child.replaceWith(frag);
-      } else if (child.nodeType === Node.ELEMENT_NODE){
-        wrapTextNodes(child);
-      }
-    });
-  }
-  wrapTextNodes(el);
-
-  const spans = el.querySelectorAll('.scramble-char');
-  spans.forEach((span, i) => {
-    const finalChar = span.dataset.final;
-    const charDelay = startDelay + i * 16;
-    const scrambleDuration = 360 + Math.random() * 200;
-    const t0 = performance.now() + charDelay;
-    function tick(now){
-      if (now < t0){ requestAnimationFrame(tick); return; }
-      if (now - t0 < scrambleDuration){
-        span.textContent = CHARS[(Math.random() * CHARS.length) | 0];
-        requestAnimationFrame(tick);
-      } else {
-        span.textContent = finalChar;
-      }
-    }
-    requestAnimationFrame(tick);
-  });
-}
-
-if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-  const heroHeadline = document.querySelector('#mainHero .headline');
-  const heroSub = document.querySelector('#mainHero .hero-sub');
-  // Wait for the custom fonts to finish loading before starting the
-  // scramble -- otherwise the headline font (which swaps in from a
-  // fallback via font-display:swap) can finish loading mid-animation,
-  // reflowing every character's width while it's actively scrambling.
-  document.fonts.ready.then(() => {
-    if (heroHeadline) scrambleReveal(heroHeadline, { startDelay: 80 });
-    if (heroSub) scrambleReveal(heroSub, { startDelay: 260 });
-  });
-}
 
 
 </script>
