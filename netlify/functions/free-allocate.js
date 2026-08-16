@@ -126,7 +126,7 @@ export default async (req, context) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 2200,
+        max_tokens: 3200,
         system: [{ type: 'text', text: buildSystemPrompt(mode), cache_control: { type: 'ephemeral' } }],
         messages,
         stream: true
