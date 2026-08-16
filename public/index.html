@@ -1185,8 +1185,14 @@ function scrambleReveal(el, opts){
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
   const heroHeadline = document.querySelector('#mainHero .headline');
   const heroSub = document.querySelector('#mainHero .hero-sub');
-  if (heroHeadline) scrambleReveal(heroHeadline, { startDelay: 80 });
-  if (heroSub) scrambleReveal(heroSub, { startDelay: 260 });
+  // Wait for the custom fonts to finish loading before starting the
+  // scramble -- otherwise the headline font (which swaps in from a
+  // fallback via font-display:swap) can finish loading mid-animation,
+  // reflowing every character's width while it's actively scrambling.
+  document.fonts.ready.then(() => {
+    if (heroHeadline) scrambleReveal(heroHeadline, { startDelay: 80 });
+    if (heroSub) scrambleReveal(heroSub, { startDelay: 260 });
+  });
 }
 
 
