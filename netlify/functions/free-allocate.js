@@ -1,10 +1,10 @@
 import { getStore } from '@netlify/blobs';
 import crypto from 'node:crypto';
 
-// Kept byte-identical in spirit to the STAGES/AXES/buildSystemPrompt in
-// index.html's inline script. Duplicated on purpose: a Netlify function
-// can't import a static HTML file's inline <script>, and this keeps the
-// function a single self-contained file rather than adding a bundler.
+// Kept byte-identical in spirit to the STAGES/AXES in index.html's inline
+// script. Duplicated on purpose: a Netlify function can't import a static
+// HTML file's inline <script>, and this keeps the function a single
+// self-contained file rather than adding a bundler.
 const STAGES = [
   { key: "discovery",     name: "Discovery and constraints",         brief: "Defining the problem, audience, budget, timeline, technical constraints, and what success looks like." },
   { key: "positioning",   name: "Brand positioning",                 brief: "Deciding what the brand stands for, how it's differentiated, and the tone it takes with its audience." },
@@ -25,24 +25,46 @@ const AXES = [
   { key: "verifiability",           label: "Verifiability",             desc: "Whether the output can be checked against an objective standard, or requires a real human's subjective reaction to judge." }
 ];
 
-function buildSystemPrompt(mode){
-  const stagesText = STAGES.map((s,i) => (i+1) + '. ' + s.name + ' (key: "' + s.key + '") — ' + s.brief).join('\n');
-  const axesText = AXES.map(a => '- ' + a.key + ' — ' + a.label + ': ' + a.desc).join('\n');
-  const schemaText = '{"needs_clarification": boolean, "clarifying_question": string|null, "stakes_read": string|null, "stages": [{"key": "<one of the stage keys above>", "owner": "human"|"ai"|"collaborative"|"split", "summary": "one short sentence", "axes_used": ["<subset of the axis keys above, only the ones that actually drove this call>"], "reasoning": "1-2 tightly written sentences, specific to the brief actually given", "parts": [{"label": "short label for this sub-part", "owner": "human"|"ai", "reasoning": "1 sentence"}]}]}';
+// The 10 stages are batched into 3 smaller parallel requests instead of one
+// big sequential one — each batch asks Claude to reason about only its own
+// stages, which cuts both the output-token budget and the wall-clock time
+// per call. Grouped roughly by "phase" so each batch stays thematically
+// coherent rather than arbitrary.
+const STAGE_BATCHES = [
+  ["discovery", "positioning", "ia", "visual"],
+  ["layout", "copy", "prototyping"],
+  ["testing", "accessibility", "technical"]
+];
 
-  const preamble = 'You are the reasoning engine behind Allocator, a tool that decides who should own each stage of a design project before work starts — a human, an AI, a collaboration between the two, or a split where different parts of one stage go to different owners. This is "design by refusal" applied up front: default to naming a real constraint, not to flattering the brief or handing everything to one side by convenience.\n\n'
-    + 'Reason about all ten fixed stages, always in this exact order and using these exact keys:\n' + stagesText + '\n\n'
-    + 'Weigh each stage against these four axes, but only name the ones that actually drove your call for that specific stage in "axes_used" — most stages are driven by one or two axes, not all four:\n' + axesText + '\n\n'
-    + 'Owner values: "human", "ai", "collaborative", "split". Use "collaborative" when the stage is a genuine continuous back-and-forth with no clean seam. Use "split" only when the stage\'s own logic really does produce two differently-owned sub-parts (e.g. user testing: recruiting and reading live reactions is human-favorable, synthesizing patterns across many sessions afterward is something AI genuinely helps with) — list those sub-parts in "parts". Don\'t force a split where the honest answer is one owner, and don\'t collapse a genuine split into one label for tidiness. Only include "parts" when owner is "split".\n\n'
-    + 'Every reasoning string must be grounded in specifics from the brief you were actually given — name the real client, audience, or stakes where relevant. If a sentence you\'re about to write would be equally true of a completely different, unrelated project, rewrite it until it wouldn\'t be. The same stage should get different weight and reasoning depending on what\'s actually at stake in this brief — a low-stakes hobby project and a high-stakes commercial one should not read as boilerplate. Keep every string as short as it can be while still being specific — one precise sentence beats three generic ones.';
+const AXES_TEXT = AXES.map(a => '- ' + a.key + ' — ' + a.label + ': ' + a.desc).join('\n');
 
-  const closerAsk = 'If the brief doesn\'t give you enough to reason about real stakes — who it\'s for, what\'s at risk, what "success" would even mean — don\'t guess. Set "needs_clarification" to true, ask exactly one focused clarifying question in "clarifying_question" (the one question that would most change your reasoning), and leave "stages" as an empty array. This is the only clarifying question you get. If the brief already gives you enough to work with, skip straight to the full breakdown with "needs_clarification": false and "stakes_read" filled in with one or two sentences naming what\'s actually high- or low-stakes about this specific brief.\n\n'
+function buildClarifyPrompt(mode){
+  const schemaText = '{"needs_clarification": boolean, "clarifying_question": string|null, "stakes_read": string|null}';
+
+  const preamble = 'You are the reasoning engine behind Triage, a tool that decides who should own each stage of a design project before work starts — a human, an AI, a collaboration between the two, or a split where different parts of one stage go to different owners. This is "design by refusal" applied up front: default to naming a real constraint, not to flattering the brief.\n\n'
+    + 'Right now you are only deciding two things: whether you have enough to reason about real stakes, and if so, what\'s actually at stake in this specific brief. You are NOT reasoning about individual stages yet — that happens separately.';
+
+  const closerAsk = 'If the brief doesn\'t give you enough to reason about real stakes — who it\'s for, what\'s at risk, what "success" would even mean — don\'t guess. Set "needs_clarification" to true and ask exactly one focused clarifying question in "clarifying_question" (the one question that would most change your reasoning). This is the only clarifying question you get. If the brief already gives you enough to work with, set "needs_clarification" to false and fill "stakes_read" with one or two sentences naming what\'s actually high- or low-stakes about this specific brief, grounded in the real client or audience named in the brief — not boilerplate that would fit any project.\n\n'
     + 'Respond with ONLY valid JSON, no markdown fences, no commentary outside the JSON, matching exactly this shape:\n' + schemaText;
 
-  const closerAnswer = 'You already asked your one clarifying question earlier in this conversation and the user has just answered it. Do not ask another question under any circumstances. Set "needs_clarification" to false, fill in "stakes_read", and produce the full ten-stage breakdown now, stating any remaining assumptions briefly inside the relevant stage\'s own reasoning rather than asking further.\n\n'
+  const closerAnswer = 'You already asked your one clarifying question earlier in this conversation and the user has just answered it. Do not ask another question under any circumstances. Set "needs_clarification" to false and fill "stakes_read" with one or two sentences naming what\'s actually high- or low-stakes about this specific brief.\n\n'
     + 'Respond with ONLY valid JSON, no markdown fences, no commentary outside the JSON, matching exactly this shape:\n' + schemaText;
 
   return preamble + '\n\n' + (mode === 'may_ask' ? closerAsk : closerAnswer);
+}
+
+function buildBatchPrompt(stageKeys, stakesRead){
+  const subset = STAGES.filter(s => stageKeys.includes(s.key));
+  const stagesText = subset.map((s, i) => (i + 1) + '. ' + s.name + ' (key: "' + s.key + '") — ' + s.brief).join('\n');
+  const schemaText = '{"stages": [{"key": "<one of the stage keys listed>", "owner": "human"|"ai"|"collaborative"|"split", "summary": "one short sentence", "axes_used": ["<subset of the axis keys below, only the ones that actually drove this call>"], "reasoning": "1-2 tightly written sentences, specific to the brief actually given", "parts": [{"label": "short label for this sub-part", "owner": "human"|"ai", "reasoning": "1 sentence"}]}]}';
+
+  return 'You are the reasoning engine behind Triage, a tool that decides who should own each stage of a design project before work starts — a human, an AI, a collaboration between the two, or a split where different parts of one stage go to different owners. This is "design by refusal" applied up front: default to naming a real constraint, not to flattering the brief or handing everything to one side by convenience.\n\n'
+    + 'Here is what\'s already been established as actually at stake in this brief: ' + stakesRead + '\n\n'
+    + 'Reason about exactly these stages, using these exact keys, in this order (do not reason about any other stage — other stages are being handled in a separate call):\n' + stagesText + '\n\n'
+    + 'Weigh each stage against these four axes, but only name the ones that actually drove your call for that specific stage in "axes_used" — most stages are driven by one or two axes, not all four:\n' + AXES_TEXT + '\n\n'
+    + 'Owner values: "human", "ai", "collaborative", "split". Use "collaborative" when the stage is a genuine continuous back-and-forth with no clean seam. Use "split" only when the stage\'s own logic really does produce two differently-owned sub-parts (e.g. user testing: recruiting and reading live reactions is human-favorable, synthesizing patterns across many sessions afterward is something AI genuinely helps with) — list those sub-parts in "parts". Don\'t force a split where the honest answer is one owner. Only include "parts" when owner is "split".\n\n'
+    + 'Every reasoning string must be grounded in specifics from the brief you were actually given — name the real client, audience, or stakes where relevant. Keep every string as short as it can be while still being specific — one precise sentence beats three generic ones.\n\n'
+    + 'Respond with ONLY valid JSON, no markdown fences, no commentary outside the JSON, matching exactly this shape:\n' + schemaText;
 }
 
 const PER_VISITOR_CAP = Number(process.env.FREE_ALLOCATE_PER_VISITOR_CAP || 5);
@@ -73,6 +95,40 @@ function validateMessages(messages){
     if (block.text.length === 0 || block.text.length > 4000) return false;
   }
   return true;
+}
+
+// One non-streaming call to Anthropic, parsed to JSON. Each batch call is
+// small enough (one system prompt covering 3-4 stages, not all 10) that it
+// finishes well within a normal request lifetime — batching several of
+// these in parallel via Promise.all is what actually solves the timeout,
+// rather than trying to keep one giant call alive longer.
+async function callAnthropicJSON(systemPrompt, messages, maxTokens){
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': SERVER_API_KEY,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5',
+      max_tokens: maxTokens,
+      system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
+      messages
+    })
+  });
+
+  if (!res.ok){
+    const errText = await res.text();
+    const err = new Error(errText.slice(0, 300));
+    err.upstream = true;
+    throw err;
+  }
+
+  const data = await res.json();
+  const raw = data.content[0].text.trim();
+  const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+  return JSON.parse(jsonStr);
 }
 
 export default async (req, context) => {
@@ -107,107 +163,77 @@ export default async (req, context) => {
     return jsonResponse({ error: 'GLOBAL_CAP_REACHED' }, 429);
   }
 
-  // The full ten-stage breakdown can take longer to generate than
-  // Netlify's synchronous function timeout allows (10s default, 26s max
-  // even on paid plans). Streaming the response back keeps the connection
-  // actively sending bytes, which sidesteps that limit — a buffered
-  // await-then-return response does not. We ask Anthropic to stream too,
-  // reassemble the text deltas server-side (to run cap bookkeeping once
-  // the full JSON is known), while forwarding each delta to the client as
-  // it arrives.
-  let upstreamRes;
-  try {
-    upstreamRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': SERVER_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 3200,
-        system: [{ type: 'text', text: buildSystemPrompt(mode), cache_control: { type: 'ephemeral' } }],
-        messages,
-        stream: true
-      })
-    });
-  } catch (err) {
-    return jsonResponse({ error: 'UPSTREAM_ERROR', message: String(err && err.message || err).slice(0, 200) }, 502);
-  }
-
-  if (!upstreamRes.ok){
-    const errText = await upstreamRes.text();
-    return jsonResponse({ error: 'UPSTREAM_ERROR', message: errText.slice(0, 300) }, 502);
-  }
-
+  // The outer response is still a stream (not a plain buffered
+  // jsonResponse) purely to stay in Netlify's streaming-function execution
+  // budget rather than the shorter synchronous one — the client always
+  // reads it as one accumulated chunk (see callTriage() in index.html), so
+  // nothing here is progressively rendered. The real fix for the timeout
+  // is the batching below, not this.
   const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
+  const t0 = Date.now();
 
   const stream = new ReadableStream({
     async start(controller){
-      const reader = upstreamRes.body.getReader();
-      let fullText = '';
-      let sseBuffer = '';
-      let stopReason = null;
-      let messageStopSeen = false;
-      const t0 = Date.now();
-      let exitReason = 'natural-done';
+      let finalBody;
+      let globalCallCount = 1; // clarify call always happens
+
       try {
-        while (true){
-          const { done, value } = await reader.read();
-          if (done) break;
-          sseBuffer += decoder.decode(value, { stream: true });
-          const lines = sseBuffer.split('\n');
-          sseBuffer = lines.pop();
-          for (const line of lines){
-            if (!line.startsWith('data: ')) continue;
-            const dataStr = line.slice(6).trim();
-            if (!dataStr) continue;
-            let evt;
-            try { evt = JSON.parse(dataStr); } catch (e) { continue; }
-            if (evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta'){
-              fullText += evt.delta.text;
-              controller.enqueue(encoder.encode(evt.delta.text));
-            }
-            if (evt.type === 'message_delta' && evt.delta && evt.delta.stop_reason){
-              stopReason = evt.delta.stop_reason;
-            }
-            if (evt.type === 'message_stop'){
-              messageStopSeen = true;
-            }
-          }
+        // Step 1: decide clarification + stakes in one small, fast call —
+        // this alone was never the slow part.
+        const clarify = await callAnthropicJSON(buildClarifyPrompt(mode), messages, 300);
+
+        if (clarify.needs_clarification){
+          finalBody = {
+            needs_clarification: true,
+            clarifying_question: clarify.clarifying_question,
+            stakes_read: null,
+            stages: []
+          };
+        } else {
+          // Step 2: reason about the 10 stages via 3 parallel batch calls
+          // instead of one call covering all of them — this is what
+          // actually keeps total wall-clock time short, since the batches
+          // run concurrently and each has a much smaller job.
+          const batchResults = await Promise.all(
+            STAGE_BATCHES.map(keys => callAnthropicJSON(buildBatchPrompt(keys, clarify.stakes_read), messages, 1500))
+          );
+          globalCallCount += STAGE_BATCHES.length;
+
+          const allStages = batchResults.flatMap(r => (r && Array.isArray(r.stages)) ? r.stages : []);
+          const orderedStages = STAGES
+            .map(s => allStages.find(st => st && st.key === s.key))
+            .filter(Boolean);
+
+          finalBody = {
+            needs_clarification: false,
+            clarifying_question: null,
+            stakes_read: clarify.stakes_read,
+            stages: orderedStages
+          };
         }
+
+        console.log('[free-allocate] completed in ' + (Date.now() - t0) + 'ms, batches=' + (finalBody.stages.length ? STAGE_BATCHES.length : 0) + ', stageCount=' + finalBody.stages.length);
       } catch (err) {
-        // Upstream stream broke mid-flight — fall through with whatever
-        // text was accumulated; the JSON.parse below will fail cleanly
-        // and the client shows its generic error rather than hanging.
-        exitReason = 'error: ' + String(err && err.message || err);
+        console.log('[free-allocate] failed after ' + (Date.now() - t0) + 'ms: ' + String(err && err.message || err));
+        finalBody = null;
       }
-      console.log('[free-allocate] stream ended after ' + (Date.now() - t0) + 'ms, exit=' + exitReason + ', stopReason=' + stopReason + ', messageStopSeen=' + messageStopSeen + ', textLen=' + fullText.length);
 
-      let parsed = null;
-      try {
-        const jsonStr = fullText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-        parsed = JSON.parse(jsonStr);
-      } catch (err) { /* leave parsed null */ }
-
-      // Global cap tracks every successful upstream call (the true cost
-      // bound); best-effort compare-and-swap — not perfectly atomic,
-      // acceptable given the small dollar amounts involved.
-      await store.setJSON(monthKey, globalCount + 1, globalEntry?.etag ? { onlyIfMatch: globalEntry.etag } : { onlyIfNew: true }).catch(() => {});
+      // Global cap tracks every successful round of upstream calls (the
+      // true cost bound); best-effort compare-and-swap — not perfectly
+      // atomic, acceptable given the small dollar amounts involved.
+      await store.setJSON(monthKey, globalCount + globalCallCount, globalEntry?.etag ? { onlyIfMatch: globalEntry.etag } : { onlyIfNew: true }).catch(() => {});
 
       // Visitor cap tracks only completed breakdowns — a clarifying-question
       // round trip doesn't spend a visitor's monthly allowance.
       let visitorRemaining = PER_VISITOR_CAP - uses.length;
-      if (parsed && Array.isArray(parsed.stages) && parsed.stages.length > 0){
+      if (finalBody && Array.isArray(finalBody.stages) && finalBody.stages.length > 0){
         const newUses = uses.concat([now]);
         await store.setJSON(visitorKey, newUses, visitorEntry?.etag ? { onlyIfMatch: visitorEntry.etag } : { onlyIfNew: true }).catch(() => {});
         visitorRemaining = PER_VISITOR_CAP - newUses.length;
       }
 
-      // Sentinel trailer, not part of the JSON body: tells the client how
-      // many free uses remain without needing a second round trip.
+      const payload = finalBody || { error: 'UPSTREAM_ERROR', message: 'Something went wrong calling Triage.' };
+      controller.enqueue(encoder.encode(JSON.stringify(payload)));
       controller.enqueue(encoder.encode('\n<<<FREE_REMAINING:' + Math.max(0, visitorRemaining) + '>>>'));
       controller.close();
     }
