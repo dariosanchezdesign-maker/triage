@@ -113,6 +113,13 @@ async function callAnthropicJSON(systemPrompt, messages, maxTokens){
     body: JSON.stringify({
       model: 'claude-sonnet-5',
       max_tokens: maxTokens,
+      // Claude Sonnet 5 has adaptive thinking on by default, and thinking
+      // tokens are billed against max_tokens right alongside the actual
+      // text output (even though the thinking text itself is omitted from
+      // the response) -- this was silently eating the budget before any
+      // real JSON got written, which is what every "stop_reason: max_tokens"
+      // truncation today actually was. This task doesn't need thinking.
+      thinking: { type: 'disabled' },
       system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       messages
     })
