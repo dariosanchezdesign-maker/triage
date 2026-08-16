@@ -107,9 +107,17 @@ export default async (req, context) => {
     return jsonResponse({ error: 'GLOBAL_CAP_REACHED' }, 429);
   }
 
-  let parsed;
+  // The full ten-stage breakdown can take longer to generate than
+  // Netlify's synchronous function timeout allows (10s default, 26s max
+  // even on paid plans). Streaming the response back keeps the connection
+  // actively sending bytes, which sidesteps that limit — a buffered
+  // await-then-return response does not. We ask Anthropic to stream too,
+  // reassemble the text deltas server-side (to run cap bookkeeping once
+  // the full JSON is known), while forwarding each delta to the client as
+  // it arrives.
+  let upstreamRes;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    upstreamRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -120,38 +128,80 @@ export default async (req, context) => {
         model: 'claude-sonnet-5',
         max_tokens: 4000,
         system: [{ type: 'text', text: buildSystemPrompt(mode), cache_control: { type: 'ephemeral' } }],
-        messages
+        messages,
+        stream: true
       })
     });
-
-    if (!res.ok){
-      const errText = await res.text();
-      return jsonResponse({ error: 'UPSTREAM_ERROR', message: errText.slice(0, 300) }, 502);
-    }
-
-    const data = await res.json();
-    const raw = data.content[0].text.trim();
-    const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
-    parsed = JSON.parse(jsonStr);
   } catch (err) {
     return jsonResponse({ error: 'UPSTREAM_ERROR', message: String(err && err.message || err).slice(0, 200) }, 502);
   }
 
-  // Global cap tracks every successful upstream call (the true cost bound);
-  // best-effort compare-and-swap — not perfectly atomic, acceptable given
-  // the small dollar amounts involved.
-  await store.setJSON(monthKey, globalCount + 1, globalEntry?.etag ? { onlyIfMatch: globalEntry.etag } : { onlyIfNew: true }).catch(() => {});
-
-  // Visitor cap tracks only completed breakdowns — a clarifying-question
-  // round trip doesn't spend a visitor's monthly allowance.
-  let visitorRemaining = PER_VISITOR_CAP - uses.length;
-  if (parsed && Array.isArray(parsed.stages) && parsed.stages.length > 0){
-    const newUses = uses.concat([now]);
-    await store.setJSON(visitorKey, newUses, visitorEntry?.etag ? { onlyIfMatch: visitorEntry.etag } : { onlyIfNew: true }).catch(() => {});
-    visitorRemaining = PER_VISITOR_CAP - newUses.length;
+  if (!upstreamRes.ok){
+    const errText = await upstreamRes.text();
+    return jsonResponse({ error: 'UPSTREAM_ERROR', message: errText.slice(0, 300) }, 502);
   }
 
-  return jsonResponse({ ...parsed, freeRemaining: Math.max(0, visitorRemaining) }, 200);
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  const stream = new ReadableStream({
+    async start(controller){
+      const reader = upstreamRes.body.getReader();
+      let fullText = '';
+      let sseBuffer = '';
+      try {
+        while (true){
+          const { done, value } = await reader.read();
+          if (done) break;
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop();
+          for (const line of lines){
+            if (!line.startsWith('data: ')) continue;
+            const dataStr = line.slice(6).trim();
+            if (!dataStr) continue;
+            let evt;
+            try { evt = JSON.parse(dataStr); } catch (e) { continue; }
+            if (evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta'){
+              fullText += evt.delta.text;
+              controller.enqueue(encoder.encode(evt.delta.text));
+            }
+          }
+        }
+      } catch (err) {
+        // Upstream stream broke mid-flight — fall through with whatever
+        // text was accumulated; the JSON.parse below will fail cleanly
+        // and the client shows its generic error rather than hanging.
+      }
+
+      let parsed = null;
+      try {
+        const jsonStr = fullText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+        parsed = JSON.parse(jsonStr);
+      } catch (err) { /* leave parsed null */ }
+
+      // Global cap tracks every successful upstream call (the true cost
+      // bound); best-effort compare-and-swap — not perfectly atomic,
+      // acceptable given the small dollar amounts involved.
+      await store.setJSON(monthKey, globalCount + 1, globalEntry?.etag ? { onlyIfMatch: globalEntry.etag } : { onlyIfNew: true }).catch(() => {});
+
+      // Visitor cap tracks only completed breakdowns — a clarifying-question
+      // round trip doesn't spend a visitor's monthly allowance.
+      let visitorRemaining = PER_VISITOR_CAP - uses.length;
+      if (parsed && Array.isArray(parsed.stages) && parsed.stages.length > 0){
+        const newUses = uses.concat([now]);
+        await store.setJSON(visitorKey, newUses, visitorEntry?.etag ? { onlyIfMatch: visitorEntry.etag } : { onlyIfNew: true }).catch(() => {});
+        visitorRemaining = PER_VISITOR_CAP - newUses.length;
+      }
+
+      // Sentinel trailer, not part of the JSON body: tells the client how
+      // many free uses remain without needing a second round trip.
+      controller.enqueue(encoder.encode('\n<<<FREE_REMAINING:' + Math.max(0, visitorRemaining) + '>>>'));
+      controller.close();
+    }
+  });
+
+  return new Response(stream, { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } });
 };
 
 export const config = { path: '/api/free-allocate' };

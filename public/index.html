@@ -868,10 +868,9 @@ async function callTriage(mode){
     body: JSON.stringify({ mode: mode, messages: apiTurns })
   });
 
-  let body = null;
-  try { body = await res.json(); } catch (e){}
-
   if (!res.ok){
+    let body = null;
+    try { body = await res.json(); } catch (e){}
     if (body && body.error === 'VISITOR_CAP_REACHED'){
       const err = new Error("You've used your free breakdowns for this month — more free ones in about " + (body.daysUntilReset || 30) + " day" + (body.daysUntilReset === 1 ? '' : 's') + ".");
       err.cap = 'visitor';
@@ -885,8 +884,38 @@ async function callTriage(mode){
     throw new Error((body && body.message) || 'Something went wrong calling Triage.');
   }
 
-  if (typeof body.freeRemaining === 'number') updateFreeRemainingNote(body.freeRemaining);
-  delete body.freeRemaining;
+  // Successful responses stream: raw JSON text, followed by a
+  // "<<<FREE_REMAINING:n>>>" sentinel appended once the server-side cap
+  // bookkeeping is done. Streaming (rather than one buffered response)
+  // keeps the connection actively sending bytes so slower generations
+  // aren't cut off by Netlify's synchronous function timeout.
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  while (true){
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    fullText += decoder.decode(chunk.value, { stream: true });
+  }
+
+  let freeRemaining = null;
+  let jsonText = fullText;
+  const markerIdx = fullText.lastIndexOf('<<<FREE_REMAINING:');
+  if (markerIdx !== -1){
+    const m = fullText.slice(markerIdx).match(/<<<FREE_REMAINING:(\d+)>>>/);
+    if (m) freeRemaining = Number(m[1]);
+    jsonText = fullText.slice(0, markerIdx);
+  }
+
+  let body;
+  try {
+    const cleaned = jsonText.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
+    body = JSON.parse(cleaned);
+  } catch (e) {
+    throw new Error('Something went wrong calling Triage.');
+  }
+
+  if (typeof freeRemaining === 'number') updateFreeRemainingNote(freeRemaining);
   return body;
 }
 
