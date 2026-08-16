@@ -126,7 +126,14 @@ async function callAnthropicJSON(systemPrompt, messages, maxTokens){
   }
 
   const data = await res.json();
-  const raw = data.content[0].text.trim();
+  const textBlock = Array.isArray(data.content) ? data.content.find(b => b && b.type === 'text') : null;
+  if (!textBlock || typeof textBlock.text !== 'string'){
+    console.log('[free-allocate] unexpected Anthropic response shape: ' + JSON.stringify(data).slice(0, 500));
+    const err = new Error('Unexpected response shape from Anthropic.');
+    err.upstream = true;
+    throw err;
+  }
+  const raw = textBlock.text.trim();
   const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
   return JSON.parse(jsonStr);
 }
