@@ -412,6 +412,11 @@
     animation:cardIn .6s cubic-bezier(.22,1,.36,1) forwards; animation-delay:calc(var(--i,0) * 70ms);
   }
   .stage-card:hover{border-color:var(--border-strong);}
+  .stage-card.owner-band-human{background:var(--owner-human-soft);}
+  .stage-card.owner-band-ai{background:var(--owner-ai-soft);}
+  .stage-card.owner-band-collaborative{background:var(--owner-collaborative-soft);}
+  .stage-card.owner-band-split{background:var(--owner-split-soft);}
+  .stage-head .owner-band-pill{margin-bottom:0;}
   @keyframes cardIn{
     0%{opacity:0; transform:translateY(14px) scale(0.98);}
     60%{opacity:1; transform:translateY(-2px) scale(1.005);}
@@ -1030,17 +1035,16 @@ function renderBreakdown(data){
 
   STAGES.forEach((s, i) => {
     const d = data.stages.find(x => x.key === s.key) || { owner: 'collaborative', summary: '', axes_used: [], reasoning: 'No allocation returned for this stage.' };
-    const badgeClass = 'owner-' + d.owner;
-    html += '<div class="stage-card" style="--i:' + i + '">';
-    html += '<div class="stage-head"><span class="stage-name"><span class="stage-num">' + (i+1) + '.</span>' + escapeHtml(s.name) + '</span><span class="owner-badge ' + badgeClass + '">' + (OWNER_LABEL[d.owner] || d.owner) + '</span></div>';
-    if (d.summary) html += '<p class="stage-summary">' + escapeHtml(d.summary) + '</p>';
+    html += '<div class="stage-card owner-band-' + d.owner + '" style="--i:' + i + '">';
+    html += '<div class="stage-head"><span class="stage-name"><span class="stage-num">' + (i+1) + '.</span>' + escapeHtml(s.name) + '</span><span class="owner-band-pill owner-band-pill-' + d.owner + '">' + (OWNER_LABEL[d.owner] || d.owner) + '</span></div>';
+    if (d.summary) html += '<p class="stage-summary owner-band-desc">' + escapeHtml(d.summary) + '</p>';
     if (d.axes_used && d.axes_used.length){
       html += '<div class="axes-row">' + d.axes_used.map(ak => {
         const axis = AXES.find(a => a.key === ak);
         return '<span class="axis-pill">' + escapeHtml(axis ? axis.label : ak) + '</span>';
       }).join('') + '</div>';
     }
-    html += '<p class="stage-reasoning">' + escapeHtml(d.reasoning) + '</p>';
+    html += '<p class="stage-reasoning owner-band-desc">' + escapeHtml(d.reasoning) + '</p>';
     if (d.owner === 'split' && d.parts && d.parts.length){
       html += '<div class="stage-parts">' + d.parts.map(p => {
         return '<div class="stage-part"><div class="stage-part-head"><span class="owner-badge owner-' + p.owner + '">' + (OWNER_LABEL[p.owner] || p.owner) + '</span><span class="stage-part-label">' + escapeHtml(p.label) + '</span></div><p class="stage-part-reasoning">' + escapeHtml(p.reasoning || '') + '</p></div>';
