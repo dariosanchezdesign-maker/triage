@@ -454,7 +454,14 @@
   .gate-btn-yes{background:var(--text); color:#fff; border-color:var(--text);}
   .gate-draft{margin-top:12px; padding-top:12px; border-top:1px solid var(--border);}
   .gate-draft-label{font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin:0 0 6px;}
-  .gate-draft-text{font-size:12.5px; line-height:1.5; background:#fff; border:1px solid var(--border); border-radius:8px; padding:10px 12px; white-space:pre-wrap; margin:0 0 8px;}
+  .gate-draft-box{position:relative;}
+  .gate-draft-text{font-size:12.5px; line-height:1.5; background:#fff; border:1px solid var(--border); border-radius:8px; padding:10px 34px 10px 12px; white-space:pre-wrap; margin:0;}
+  .gate-copy-btn{
+    position:absolute; top:8px; right:8px; display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; padding:0; border-radius:6px; border:1px solid var(--border);
+    background:#fff; color:var(--text-secondary); cursor:pointer; transition:opacity .2s ease, color .2s ease;
+  }
+  .gate-copy-btn:hover{opacity:0.8; color:var(--text);}
   .share-row{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;}
   .share-btn{
     background:var(--text); border:none; border-radius:8px; color:#fff; font-size:12px;
@@ -765,6 +772,12 @@ function flashButton(btn, msg){
   const original = btn.textContent;
   btn.textContent = msg;
   setTimeout(() => { btn.textContent = original; }, 1500);
+}
+
+function flashIconButton(btn){
+  const original = btn.innerHTML;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  setTimeout(() => { btn.innerHTML = original; }, 1500);
 }
 
 /* ---------- static explainer sections ---------- */
@@ -1082,7 +1095,7 @@ function renderBreakdown(data, entryId){
         html += '<p class="stage-check-confirmed">Confirmed with a second person</p>';
       }
       if (!cs.done && cs.secondOpinion === false){
-        html += '<div class="gate-draft"><p class="gate-draft-label">Ask for a second opinion</p><p class="gate-draft-text">' + escapeHtml(buildSecondOpinionMessage(s, d)) + '</p><button type="button" class="gate-btn copy-draft-btn" data-stage="' + s.key + '">Copy message</button></div>';
+        html += '<div class="gate-draft"><p class="gate-draft-label">Ask for a second opinion</p><div class="gate-draft-box"><p class="gate-draft-text">' + escapeHtml(buildSecondOpinionMessage(s, d)) + '</p><button type="button" class="gate-copy-btn copy-draft-btn" data-stage="' + s.key + '" aria-label="Copy message" title="Copy message"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div></div>';
       }
       html += '</div>';
     }
@@ -1116,11 +1129,11 @@ function renderBreakdown(data, entryId){
   if (!entryId) return;
 
   els.results.querySelectorAll('.copy-draft-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       const stageKey = btn.getAttribute('data-stage');
       const s = STAGES.find(x => x.key === stageKey);
       const d = data.stages.find(x => x.key === stageKey);
-      navigator.clipboard.writeText(buildSecondOpinionMessage(s, d)).then(() => flashButton(e.target, 'Copied'));
+      navigator.clipboard.writeText(buildSecondOpinionMessage(s, d)).then(() => flashIconButton(btn));
     });
   });
 
