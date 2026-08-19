@@ -441,6 +441,20 @@
   .stage-part-head{display:flex; align-items:center; gap:8px; margin-bottom:3px; flex-wrap:wrap;}
   .stage-part-label{font-size:13px; font-weight:600;}
   .stage-part-reasoning{font-size:12.5px; color:var(--text-secondary); margin:0;}
+  .stage-checklist{margin-top:14px; padding-top:12px; border-top:1px solid var(--border);}
+  .stage-check-row{display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;}
+  .stage-check-row input[type="checkbox"]{width:16px; height:16px; cursor:pointer; accent-color:var(--text);}
+  .stage-check-label{font-size:12.5px; font-weight:600;}
+  .stage-check-confirmed{font-size:11.5px; color:var(--text-muted); margin:4px 0 0 24px;}
+  .gate-panel{margin-top:10px; background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px 14px;}
+  .gate-question{font-size:13px; font-weight:600; margin:0 0 10px;}
+  .gate-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .gate-btn{border-radius:8px; font-size:12px; padding:7px 12px; cursor:pointer; border:1px solid var(--border); background:#fff; transition:opacity .2s ease;}
+  .gate-btn:hover{opacity:0.8;}
+  .gate-btn-yes{background:var(--text); color:#fff; border-color:var(--text);}
+  .gate-draft{margin-top:12px; padding-top:12px; border-top:1px solid var(--border);}
+  .gate-draft-label{font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin:0 0 6px;}
+  .gate-draft-text{font-size:12.5px; line-height:1.5; background:#fff; border:1px solid var(--border); border-radius:8px; padding:10px 12px; white-space:pre-wrap; margin:0 0 8px;}
   .share-row{display:flex; gap:8px; margin-top:6px; flex-wrap:wrap;}
   .share-btn{
     background:var(--text); border:none; border-radius:8px; color:#fff; font-size:12px;
@@ -957,8 +971,8 @@ async function sendMessage(){
       uiMessages.pop();
       uiMessages.push({ role: 'assistant', text: 'Here\'s the allocation — see below.' });
       renderChatLog(uiMessages);
-      renderBreakdown(parsed);
-      saveHistoryEntry(originalBrief, parsed);
+      const savedEntry = saveHistoryEntry(originalBrief, parsed);
+      renderBreakdown(parsed, savedEntry.id);
       runComplete = true;
       showNewProjectAffordance();
       document.getElementById('resultsSection').scrollIntoView({behavior:'smooth', block:'start'});
@@ -1024,9 +1038,17 @@ document.getElementById('fillExample').addEventListener('click', () => {
 
 /* ---------- rendering ---------- */
 
-function renderBreakdown(data){
+function buildSecondOpinionMessage(s, d){
+  const ownerLabel = (OWNER_LABEL[d.owner] || d.owner).toLowerCase();
+  return 'Quick second opinion needed on "' + s.name + '" -- Triage flagged this as ' + ownerLabel + ': ' + d.reasoning + ' Can you take a look before I mark this done?';
+}
+
+function renderBreakdown(data, entryId){
   window.__lastResult = data;
   els.emptyState.style.display = 'none';
+
+  const entry = entryId ? loadHistory().find(h => h.id === entryId) : null;
+  const checklist = (entry && entry.checklist) || {};
 
   let html = '';
   if (data.stakes_read){
@@ -1035,6 +1057,8 @@ function renderBreakdown(data){
 
   STAGES.forEach((s, i) => {
     const d = data.stages.find(x => x.key === s.key) || { owner: 'collaborative', summary: '', axes_used: [], reasoning: 'No allocation returned for this stage.' };
+    const gated = d.owner === 'human' || d.owner === 'split';
+    const cs = checklist[s.key] || {};
     html += '<div class="stage-card owner-band-' + d.owner + '" style="--i:' + i + '">';
     html += '<div class="stage-head"><span class="stage-name"><span class="stage-num">' + (i+1) + '.</span>' + escapeHtml(s.name) + '</span><span class="owner-band-pill owner-band-pill-' + d.owner + '">' + (OWNER_LABEL[d.owner] || d.owner) + '</span></div>';
     if (d.summary) html += '<p class="stage-summary owner-band-desc">' + escapeHtml(d.summary) + '</p>';
@@ -1050,6 +1074,19 @@ function renderBreakdown(data){
         return '<div class="stage-part"><div class="stage-part-head"><span class="owner-badge owner-' + p.owner + '">' + (OWNER_LABEL[p.owner] || p.owner) + '</span><span class="stage-part-label">' + escapeHtml(p.label) + '</span></div><p class="stage-part-reasoning">' + escapeHtml(p.reasoning || '') + '</p></div>';
       }).join('') + '</div>';
     }
+
+    if (entryId){
+      html += '<div class="stage-checklist">';
+      html += '<label class="stage-check-row"><input type="checkbox" class="stage-done-checkbox" data-stage="' + s.key + '"' + (gated ? ' data-gated="1"' : '') + (cs.done ? ' checked' + (cs.secondOpinion ? ' disabled' : '') : '') + '><span class="stage-check-label">' + (cs.done ? 'Done' : 'Mark this stage done') + '</span></label>';
+      if (cs.done && cs.secondOpinion){
+        html += '<p class="stage-check-confirmed">Confirmed with a second person</p>';
+      }
+      if (!cs.done && cs.secondOpinion === false){
+        html += '<div class="gate-draft"><p class="gate-draft-label">Ask for a second opinion</p><p class="gate-draft-text">' + escapeHtml(buildSecondOpinionMessage(s, d)) + '</p><button type="button" class="gate-btn copy-draft-btn" data-stage="' + s.key + '">Copy message</button></div>';
+      }
+      html += '</div>';
+    }
+
     html += '</div>';
   });
 
@@ -1075,6 +1112,58 @@ function renderBreakdown(data){
     });
     navigator.clipboard.writeText(text.trim()).then(() => flashButton(e.target, 'Copied'));
   });
+
+  if (!entryId) return;
+
+  els.results.querySelectorAll('.copy-draft-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const stageKey = btn.getAttribute('data-stage');
+      const s = STAGES.find(x => x.key === stageKey);
+      const d = data.stages.find(x => x.key === stageKey);
+      navigator.clipboard.writeText(buildSecondOpinionMessage(s, d)).then(() => flashButton(e.target, 'Copied'));
+    });
+  });
+
+  els.results.querySelectorAll('.stage-done-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const stageKey = cb.getAttribute('data-stage');
+      const gated = cb.getAttribute('data-gated') === '1';
+
+      if (!cb.checked){
+        updateChecklist(entryId, stageKey, { done: false, secondOpinion: null });
+        renderBreakdown(data, entryId);
+        return;
+      }
+
+      if (!gated){
+        updateChecklist(entryId, stageKey, { done: true, secondOpinion: null });
+        renderBreakdown(data, entryId);
+        return;
+      }
+
+      cb.checked = false;
+      showGatePanel(cb, stageKey, entryId, data);
+    });
+  });
+}
+
+function showGatePanel(checkboxEl, stageKey, entryId, data){
+  const existing = checkboxEl.closest('.stage-checklist').querySelector('.gate-panel');
+  if (existing) return;
+
+  const panel = document.createElement('div');
+  panel.className = 'gate-panel';
+  panel.innerHTML = '<p class="gate-question">Did a second person actually weigh in on this, or are you marking it done solo?</p><div class="gate-actions"><button type="button" class="gate-btn gate-btn-yes" data-answer="yes">Yes, someone weighed in</button><button type="button" class="gate-btn" data-answer="no">No, not yet</button></div>';
+  checkboxEl.closest('.stage-checklist').appendChild(panel);
+
+  panel.querySelector('[data-answer="yes"]').addEventListener('click', () => {
+    updateChecklist(entryId, stageKey, { done: true, secondOpinion: true });
+    renderBreakdown(data, entryId);
+  });
+  panel.querySelector('[data-answer="no"]').addEventListener('click', () => {
+    updateChecklist(entryId, stageKey, { done: false, secondOpinion: false });
+    renderBreakdown(data, entryId);
+  });
 }
 
 /* ---------- history ---------- */
@@ -1086,10 +1175,20 @@ function loadHistory(){
 
 function saveHistoryEntry(brief, data){
   const hist = loadHistory();
-  const entry = { id: Date.now(), label: brief.slice(0,70) + (brief.length > 70 ? '…' : ''), date: new Date().toISOString(), data: data };
+  const entry = { id: Date.now(), label: brief.slice(0,70) + (brief.length > 70 ? '…' : ''), date: new Date().toISOString(), data: data, checklist: {} };
   hist.unshift(entry);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0,20)));
   renderHistory();
+  return entry;
+}
+
+function updateChecklist(entryId, stageKey, patch){
+  const hist = loadHistory();
+  const entry = hist.find(h => h.id === entryId);
+  if (!entry) return;
+  if (!entry.checklist) entry.checklist = {};
+  entry.checklist[stageKey] = Object.assign({}, entry.checklist[stageKey], patch);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
 }
 
 function renderHistory(){
@@ -1107,7 +1206,7 @@ function renderHistory(){
     el.addEventListener('click', () => {
       const id = Number(el.getAttribute('data-id'));
       const entry = loadHistory().find(h => h.id === id);
-      if (entry){ renderBreakdown(entry.data); els.results.scrollIntoView({behavior:'smooth', block:'start'}); }
+      if (entry){ renderBreakdown(entry.data, entry.id); els.results.scrollIntoView({behavior:'smooth', block:'start'}); }
     });
   });
   document.getElementById('clearHistBtn').addEventListener('click', () => {
